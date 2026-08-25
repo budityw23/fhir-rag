@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fhir-rag"
+version = "0.1.0"
+description = "FHIR RAG system for diabetic patient question answering"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]>=0.115",
+    "uvicorn[standard]",
+    "asyncpg",
+    "pgvector",
+    "fhir.resources>=7.1",
+    "sentence-transformers>=3.0",
+    "anthropic",
+    "jinja2",
+    "pydantic-settings",
+    "httpx",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]

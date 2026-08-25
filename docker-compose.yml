@@ -1,0 +1,37 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fhir_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-fhir}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fhir}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-fhir} -d $${POSTGRES_DB:-fhir_rag}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://fhir:fhir@db:5432/fhir_rag}
+      LLM_PROVIDER: ${LLM_PROVIDER:-claude}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      TOP_K: ${TOP_K:-10}
+      MAX_REFERENCE_HOPS: ${MAX_REFERENCE_HOPS:-2}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+
