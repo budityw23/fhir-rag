@@ -82,6 +82,15 @@ Updated: 2026-08-25
 - Added responsive Pico CSS overrides for grounded/partial/ungrounded confidence states, citations, and loading feedback.
 - All frontend assets remain local and are loaded from `/vendor/` without CDN references.
 
+### Phase 5: Evaluation and Documentation
+
+- Task 5.1: Added `eval/questions.json` with all 50 validation questions from `docs/diabetics-validation-questions.md`.
+- Covered all ten categories with expected resource types, SNOMED/LOINC/RxNorm code references, answer expectations, and Type 1/Type 2 applicability.
+- Task 5.2: Added `eval/evaluate.py` for full-pipeline evaluation.
+- The harness reports retrieval recall, citation accuracy, answer-keyword coverage, confidence, and latency per question and in aggregate.
+- Results are printed as a terminal table and written to `eval/results/evaluation_results.json`.
+- Task 5.3: Added `README.md` with the Mermaid architecture, Docker quickstart, diabetes examples, design decisions, evaluation instructions, limitations, and v2 roadmap.
+
 ## Verification
 
 - Editable installation succeeded in the project virtual environment with `pip install -e ".[dev]"`.
@@ -89,7 +98,7 @@ Updated: 2026-08-25
 - `docker compose config` passed.
 - Frontend assets are loaded from `/vendor/`; no CDN references are present.
 - Database schema checks passed, including the HNSW index and absence of IVFFlat.
-- Full parser, renderer, chunker, embedder, ingestion, retrieval, generation, and API test suite passed: `35 passed`.
+- Full parser, renderer, chunker, embedder, ingestion, retrieval, generation, API, and Phase 5 verification suite passed: `35 passed`.
 - Frontend static checks passed for vendored assets, API references, citation bindings, and no CDN references.
 - Python compilation checks passed for `src/` and `tests/`.
 
@@ -101,4 +110,4 @@ The system-wide install command was blocked by Debian's externally managed Pytho
 - Phase 2 complete: hybrid retrieval, reference resolution, and context building.
 - Phase 3 complete: prompt template, LLM provider abstraction, and citation mapping.
 - Phase 4 complete: FastAPI application and functional frontend.
-- Phase 5: evaluation harness, Docker integration testing, and polish.
+- Phase 5: Docker integration testing and final polish remain.
