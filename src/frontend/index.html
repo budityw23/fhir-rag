@@ -3,17 +3,107 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FHIR RAG</title>
+    <meta name="description" content="Grounded diabetes Q&A over FHIR patient records">
+    <title>Diabetes FHIR RAG</title>
     <link rel="stylesheet" href="/vendor/pico.min.css">
     <link rel="stylesheet" href="/style.css">
   </head>
-  <body>
-    <main class="container" x-data="fhirRagApp()">
-      <h1>FHIR RAG</h1>
-      <p>Diabetes patient Q&amp;A interface placeholder.</p>
+  <body x-data="fhirRagApp()" x-init="init()">
+    <main class="container shell">
+      <header class="hero">
+        <p class="eyebrow">FHIR / DIABETES CLINICAL DATA</p>
+        <h1>Ask the patient record.</h1>
+        <p class="lede">Grounded answers about Type 1 and Type 2 diabetes, with every claim tied back to a FHIR resource.</p>
+      </header>
+
+      <section class="query-panel" aria-labelledby="query-heading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01 / PATIENT CONTEXT</p>
+            <h2 id="query-heading">Choose a patient</h2>
+          </div>
+          <span class="record-count" x-text="patients.length + ' records available'"></span>
+        </div>
+
+        <label for="patient">Patient</label>
+        <select id="patient" x-model="selectedPatient" :disabled="loading">
+          <option value="">All diabetic patients</option>
+          <template x-for="patient in patients" :key="patient.id">
+            <option :value="patient.id" x-text="patient.name + ' — ' + patient.id"></option>
+          </template>
+        </select>
+
+        <div class="section-heading question-heading">
+          <div>
+            <p class="eyebrow">02 / CLINICAL QUESTION</p>
+            <h2>What do you want to know?</h2>
+          </div>
+        </div>
+        <form @submit.prevent="submitQuestion()">
+          <textarea
+            id="question"
+            rows="3"
+            x-model="question"
+            @keydown.enter.prevent="submitQuestion()"
+            :disabled="loading"
+            placeholder="What is the latest HbA1c?"
+            aria-label="Clinical question"
+          ></textarea>
+          <div class="form-footer">
+            <small>Press Enter to submit</small>
+            <button type="submit" :aria-busy="loading" :disabled="loading || !question.trim()">
+              <span x-show="!loading">Ask the record</span>
+              <span x-show="loading" x-cloak>Retrieving evidence</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="examples" aria-label="Example questions">
+          <span>Try asking</span>
+          <template x-for="example in examples" :key="example">
+            <button type="button" class="secondary outline example-button" @click="question = example" x-text="example"></button>
+          </template>
+        </div>
+      </section>
+
+      <div class="loading-state" role="status" x-show="loading" x-cloak>
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Searching FHIR resources and resolving supporting records...</span>
+      </div>
+
+      <section class="error-state" role="alert" x-show="error" x-cloak>
+        <strong>Unable to answer this question.</strong>
+        <span x-text="error"></span>
+      </section>
+
+      <section class="answer-panel" aria-labelledby="answer-heading" x-show="answer" x-cloak>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03 / GROUNDED ANSWER</p>
+            <h2 id="answer-heading">Record response</h2>
+          </div>
+          <span class="confidence-badge" :class="'confidence-' + confidence" x-text="confidenceLabel"></span>
+        </div>
+        <div class="answer-copy" x-text="answer"></div>
+
+        <div class="citations" x-show="citations.length">
+          <div class="citation-heading">
+            <h3>Evidence trail</h3>
+            <span x-text="citations.length + ' cited resources'"></span>
+          </div>
+          <template x-for="citation in citations" :key="citation.resource_id">
+            <details class="citation-card">
+              <summary>
+                <span class="citation-id" x-text="citation.resource_id"></span>
+                <span class="citation-date" x-text="citation.date || 'Date not recorded'"></span>
+              </summary>
+              <p x-text="citation.text_snippet"></p>
+            </details>
+          </template>
+        </div>
+      </section>
     </main>
     <script defer src="/vendor/alpine.min.js"></script>
-    <script src="/app.js"></script>
+    <script defer src="/app.js"></script>
   </body>
 </html>
-

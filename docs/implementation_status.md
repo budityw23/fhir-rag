@@ -77,6 +77,10 @@ Updated: 2026-08-25
 - Task 4.1: Added `src/api/main.py` with FastAPI app factory, lifecycle initialization/cleanup, and frontend static mounting.
 - Query errors return HTTP 500, validation errors return HTTP 422, and missing resources return HTTP 404.
 - Constrained FastAPI to the documented 0.115 release line for compatible Starlette/httpx behavior.
+- Task 4.2: Implemented the Alpine.js frontend in `src/frontend/index.html`, `app.js`, and `style.css`.
+- Added patient loading, patient selection, Enter-to-submit question input, diabetes example questions, loading/error states, confidence badges, and expandable citation evidence.
+- Added responsive Pico CSS overrides for grounded/partial/ungrounded confidence states, citations, and loading feedback.
+- All frontend assets remain local and are loaded from `/vendor/` without CDN references.
 
 ## Verification
 
@@ -86,6 +90,7 @@ Updated: 2026-08-25
 - Frontend assets are loaded from `/vendor/`; no CDN references are present.
 - Database schema checks passed, including the HNSW index and absence of IVFFlat.
 - Full parser, renderer, chunker, embedder, ingestion, retrieval, generation, and API test suite passed: `35 passed`.
+- Frontend static checks passed for vendored assets, API references, citation bindings, and no CDN references.
 - Python compilation checks passed for `src/` and `tests/`.
 
 The system-wide install command was blocked by Debian's externally managed Python policy. Verification was completed using the project-local `.venv` environment.
@@ -95,4 +100,5 @@ The system-wide install command was blocked by Debian's externally managed Pytho
 - Phase 1 complete: FHIR parsing, rendering, chunking, embedding, and ingestion pipeline.
 - Phase 2 complete: hybrid retrieval, reference resolution, and context building.
 - Phase 3 complete: prompt template, LLM provider abstraction, and citation mapping.
-- Phase 4 remaining: functional frontend, evaluation harness, Docker integration testing, and polish.
+- Phase 4 complete: FastAPI application and functional frontend.
+- Phase 5: evaluation harness, Docker integration testing, and polish.
