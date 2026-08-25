@@ -43,6 +43,19 @@ Updated: 2026-08-25
 - Prints parsing, embedding progress, and final `{bundles, resources, chunks_stored}` statistics.
 - Handles empty or unsupported-only data directories without opening a database connection.
 
+### Phase 2: Retrieval
+
+- Task 2.1: Added `src/retrieval/hybrid_search.py`.
+- Combines pgvector cosine similarity with optional patient, resource-type, and date-range filters.
+- Uses parameterized SQL only and returns typed, similarity-ranked `SearchResult` values.
+- Handles empty result sets without special-case database errors.
+- Task 2.2: Added `src/retrieval/reference_resolver.py`.
+- Resolves referenced resources through direct `resource_id` lookups, capped at two hops by default.
+- Deduplicates primary and supplementary resources and assigns supplementary similarity `0.0`.
+- Task 2.3: Added `src/retrieval/context_builder.py`.
+- Builds citation-ready context grouped by resource type.
+- Separates ranked primary resources from supporting resolved references and includes resource IDs in brackets.
+
 ## Verification
 
 - Editable installation succeeded in the project virtual environment with `pip install -e ".[dev]"`.
@@ -50,7 +63,7 @@ Updated: 2026-08-25
 - `docker compose config` passed.
 - Frontend assets are loaded from `/vendor/`; no CDN references are present.
 - Database schema checks passed, including the HNSW index and absence of IVFFlat.
-- Parser, renderer, chunker, embedder, and ingestion test suite passed: `20 passed`.
+- Full parser, renderer, chunker, embedder, ingestion, and retrieval test suite passed: `25 passed`.
 - Python compilation checks passed for `src/` and `tests/`.
 
 The system-wide install command was blocked by Debian's externally managed Python policy. Verification was completed using the project-local `.venv` environment.
@@ -58,6 +71,6 @@ The system-wide install command was blocked by Debian's externally managed Pytho
 ## Pending
 
 - Phase 1 complete: FHIR parsing, rendering, chunking, embedding, and ingestion pipeline.
-- Phase 2: Hybrid retrieval, reference resolution, and context building.
+- Phase 2 complete: hybrid retrieval, reference resolution, and context building.
 - Phase 3: LLM generation, citation mapping, FastAPI endpoints, and functional frontend.
 - Phase 4: Evaluation harness, Docker integration testing, and polish.
