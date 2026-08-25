@@ -56,6 +56,20 @@ Updated: 2026-08-25
 - Builds citation-ready context grouped by resource type.
 - Separates ranked primary resources from supporting resolved references and includes resource IDs in brackets.
 
+### Phase 3: Generation
+
+- Task 3.1: Added `src/generation/prompts/clinical_qa.jinja2`.
+- Defines strict FHIR grounding rules, citation syntax, insufficient-data behavior, and no-fabrication requirements.
+- Renders with `context` and `question` variables.
+- Task 3.2: Added `src/generation/llm_client.py`.
+- Provides a common async `LLMClient` interface for Claude and Ollama.
+- Claude uses the async Anthropic SDK with `claude-sonnet-4-6`.
+- Ollama uses the `/api/generate` endpoint with non-streaming responses.
+- Both providers return content, model, input-token, and output-token metadata.
+- Task 3.3: Added `src/generation/citation_mapper.py`.
+- Extracts `[ResourceType/id]` citations and matches them against retrieved `SearchResult` resources.
+- Produces citation snippets and dates with grounded, partially grounded, or ungrounded confidence.
+
 ## Verification
 
 - Editable installation succeeded in the project virtual environment with `pip install -e ".[dev]"`.
@@ -63,7 +77,7 @@ Updated: 2026-08-25
 - `docker compose config` passed.
 - Frontend assets are loaded from `/vendor/`; no CDN references are present.
 - Database schema checks passed, including the HNSW index and absence of IVFFlat.
-- Full parser, renderer, chunker, embedder, ingestion, and retrieval test suite passed: `25 passed`.
+- Full parser, renderer, chunker, embedder, ingestion, retrieval, and generation test suite passed: `31 passed`.
 - Python compilation checks passed for `src/` and `tests/`.
 
 The system-wide install command was blocked by Debian's externally managed Python policy. Verification was completed using the project-local `.venv` environment.
@@ -72,5 +86,6 @@ The system-wide install command was blocked by Debian's externally managed Pytho
 
 - Phase 1 complete: FHIR parsing, rendering, chunking, embedding, and ingestion pipeline.
 - Phase 2 complete: hybrid retrieval, reference resolution, and context building.
-- Phase 3: LLM generation, citation mapping, FastAPI endpoints, and functional frontend.
+- Phase 3 complete: prompt template, LLM provider abstraction, and citation mapping.
+- Phase 4: FastAPI endpoints and functional frontend.
 - Phase 4: Evaluation harness, Docker integration testing, and polish.
