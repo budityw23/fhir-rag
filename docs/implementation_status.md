@@ -37,6 +37,11 @@ Updated: 2026-08-25
 - Wraps `sentence-transformers` with lazy model loading.
 - Supports batch text embedding and single query embedding using the same model.
 - Validates and returns 384-dimensional float vectors.
+- Task 1.5: Added `src/ingestion/ingest.py` CLI pipeline.
+- Orchestrates Bundle parsing, one-resource chunking, 32-item batch embedding, and pgvector storage.
+- Uses pgvector asyncpg codecs and `ON CONFLICT (resource_id) DO NOTHING` for idempotent ingestion.
+- Prints parsing, embedding progress, and final `{bundles, resources, chunks_stored}` statistics.
+- Handles empty or unsupported-only data directories without opening a database connection.
 
 ## Verification
 
@@ -45,14 +50,14 @@ Updated: 2026-08-25
 - `docker compose config` passed.
 - Frontend assets are loaded from `/vendor/`; no CDN references are present.
 - Database schema checks passed, including the HNSW index and absence of IVFFlat.
-- Parser, renderer, chunker, and embedder test suite passed: `16 passed`.
+- Parser, renderer, chunker, embedder, and ingestion test suite passed: `20 passed`.
 - Python compilation checks passed for `src/` and `tests/`.
 
 The system-wide install command was blocked by Debian's externally managed Python policy. Verification was completed using the project-local `.venv` environment.
 
 ## Pending
 
-- Phase 1 remaining: ingestion pipeline and pgvector storage.
+- Phase 1 complete: FHIR parsing, rendering, chunking, embedding, and ingestion pipeline.
 - Phase 2: Hybrid retrieval, reference resolution, and context building.
 - Phase 3: LLM generation, citation mapping, FastAPI endpoints, and functional frontend.
 - Phase 4: Evaluation harness, Docker integration testing, and polish.
