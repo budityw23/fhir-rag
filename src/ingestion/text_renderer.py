@@ -183,12 +183,20 @@ def render_encounter(resource: dict) -> str:
 
 def _reaction_text(reaction: dict) -> str | None:
     """Render one reaction as its manifestations plus optional severity."""
-    manifestations = [
-        _coded_text(_first_coding({"m": item}, "m"))
-        for item in reaction.get("manifestation", [])
-        if isinstance(item, dict)
-    ]
-    manifestations = [text for text in manifestations if text != "unspecified"]
+    manifestations = []
+    for item in reaction.get("manifestation", []):
+        if not isinstance(item, dict):
+            continue
+        coding = _first_coding({"m": item}, "m")
+        if coding is not None:
+            manifestations.append(_coded_text(coding))
+            continue
+        # FHIR allows a CodeableConcept carrying only free text; without this
+        # the manifestation is dropped as "unspecified" and the reaction is
+        # rendered with no detail at all.
+        text = item.get("text")
+        if isinstance(text, str) and text.strip():
+            manifestations.append(text.strip())
     if not manifestations:
         return None
     severity = reaction.get("severity")

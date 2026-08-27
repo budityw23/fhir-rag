@@ -17,6 +17,14 @@ CREATE TABLE IF NOT EXISTS fhir_chunks (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- CREATE TABLE IF NOT EXISTS is a no-op against a database created before
+-- text_search existed, and the GIN index below would then fail on a missing
+-- column. Adding it separately keeps this file correct for both a fresh volume
+-- and an existing fhir_chunks table.
+ALTER TABLE fhir_chunks
+    ADD COLUMN IF NOT EXISTS text_search TSVECTOR
+    GENERATED ALWAYS AS (to_tsvector('english', text_content)) STORED;
+
 CREATE INDEX IF NOT EXISTS idx_fhir_chunks_embedding ON fhir_chunks
     USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_fhir_chunks_resource_type ON fhir_chunks (resource_type);

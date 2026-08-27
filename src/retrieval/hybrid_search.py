@@ -9,6 +9,11 @@ from typing import Any
 RRF_K = 60
 # Candidates each arm contributes before fusion, as a multiple of top_k.
 ARM_OVERFETCH = 5
+# Relative weight of the lexical arm in the fusion. The OR-joined query matches
+# on any question term, so it ranks chunks that merely share a common word.
+# Half weight lets it rescue questions the vector arm misses (a query naming a
+# resource type outright) without letting it outvote semantic similarity.
+LEXICAL_WEIGHT = 0.5
 
 
 @dataclass
@@ -69,7 +74,7 @@ async def hybrid_search(
     # still surface after fusion even when the other arm ignores it entirely.
     candidate_limit = max(top_k * ARM_OVERFETCH, top_k)
     query = """
-        WITH filtered AS (
+        WITH filtered AS NOT MATERIALIZED (
             SELECT resource_id, resource_type, patient_ref, resource_date,
                    codes, "references", text_content, embedding, text_search
             FROM fhir_chunks
@@ -77,6 +82,16 @@ async def hybrid_search(
               AND ($3::text[] IS NULL OR resource_type = ANY($3::text[]))
               AND ($4::timestamptz IS NULL OR resource_date >= $4::timestamptz)
               AND ($5::timestamptz IS NULL OR resource_date <= $5::timestamptz)
+        ),
+        lexical_query AS (
+            -- websearch_to_tsquery joins terms with AND, which requires every
+            -- word of a question to appear in one short clinical chunk and so
+            -- matched nothing. Reuse its tokenising and escaping, then relax
+            -- the conjunction to OR so ts_rank_cd can rank by term overlap.
+            SELECT NULLIF(
+                       replace(websearch_to_tsquery('english', $8)::text, ' & ', ' | '),
+                       ''
+                   )::tsquery AS query
         ),
         vector_arm AS (
             SELECT resource_id,
@@ -88,19 +103,17 @@ async def hybrid_search(
         ),
         lexical_arm AS (
             SELECT resource_id,
-                   ROW_NUMBER() OVER (
-                       ORDER BY ts_rank_cd(text_search, websearch_to_tsquery('english', $8)) DESC
-                   ) AS rank
-            FROM filtered
-            WHERE $8::text IS NOT NULL
-              AND text_search @@ websearch_to_tsquery('english', $8)
-            ORDER BY ts_rank_cd(text_search, websearch_to_tsquery('english', $8)) DESC
+                   ROW_NUMBER() OVER (ORDER BY ts_rank_cd(text_search, q.query) DESC) AS rank
+            FROM filtered, lexical_query q
+            WHERE q.query IS NOT NULL
+              AND text_search @@ q.query
+            ORDER BY ts_rank_cd(text_search, q.query) DESC
             LIMIT $7
         ),
         fused AS (
             SELECT COALESCE(v.resource_id, l.resource_id) AS resource_id,
                    COALESCE(1.0 / ($9 + v.rank), 0.0)
-                     + COALESCE(1.0 / ($9 + l.rank), 0.0) AS score,
+                     + $10 * COALESCE(1.0 / ($9 + l.rank), 0.0) AS score,
                    COALESCE(v.similarity, 0.0) AS similarity
             FROM vector_arm v
             FULL OUTER JOIN lexical_arm l ON v.resource_id = l.resource_id
@@ -130,5 +143,6 @@ async def hybrid_search(
                 candidate_limit,
                 query_text,
                 RRF_K,
+                LEXICAL_WEIGHT,
             )
     return [result_from_row(row) for row in rows]

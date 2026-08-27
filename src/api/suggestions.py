@@ -120,8 +120,9 @@ def build_suggestions(condition_texts: list[str], resource_types: list[str]) -> 
             suggestions.append(question)
 
     if not suggestions:
+        # Reached when the record has no active Conditions and no resource type
+        # we have a question for. Only the problem list is safe to offer blind.
         suggestions = [
-            "What are this patient's active problems, and when was each diagnosed?",
-            "What medications is this patient currently taking?",
+            "What are this patient's active problems, and when was each diagnosed?"
         ]
     return suggestions[:MAX_SUGGESTIONS]

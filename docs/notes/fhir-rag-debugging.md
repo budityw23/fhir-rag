@@ -497,11 +497,10 @@ retrieval is driven by the query text:
 Asking the model to *exclude* the duplicates does not work. Exclusion happens
 during generation, after retrieval has already discarded the answer.
 
-**Proper fix (not yet implemented)**
-
-Diversity-aware retrieval. Either MMR re-ranking over the fused candidates, or
-collapsing candidates by `(resource_type, code)` and keeping the most recent
-plus a count, before applying `top_k`.
+**Resolved by section 15.** Once the lexical arm actually matched, the clinical
+conditions were retrieved and this question answers correctly. Diversity-aware
+retrieval (MMR, or collapsing by `(resource_type, code)`) is still the more
+robust fix and remains unimplemented.
 
 **Lesson**
 
@@ -509,6 +508,80 @@ Top-k similarity assumes candidates are informative *and* distinct. Synthetic
 records violate that badly with repeated administrative entries. When an
 aggregation question under-reports, inspect the resource-type histogram of the
 retrieved set before touching the prompt.
+
+## 15. The Lexical Arm Matched Nothing, and the CTE Blocked Every Index
+
+**Symptom**
+
+Found by CodeRabbit review of PR #1, then confirmed with `EXPLAIN (ANALYZE)`.
+A patient-unscoped hybrid query took **3871 ms**, and the lexical arm returned
+zero rows for every realistic question.
+
+**Cause**
+
+Two defects in the same query.
+
+`websearch_to_tsquery` joins terms with AND. A question has to have *all* of
+its stemmed terms present in one short clinical chunk for the arm to match,
+which never happens:
+
+```text
+'Is his immunization schedule up to date for a 6-year-old?'
+  -> 'immun' & 'schedul' & 'date' & '6' <-> 'year-old'   -> 0 rows
+'Which allergies are documented, and what reaction did each cause?'
+  -> 'allergi' & 'document' & 'reaction' & 'caus'        -> 0 rows
+```
+
+So "hybrid" search was pure vector search. The retrieval gains in section 10
+came entirely from the transformer embeddings; the lexical arm contributed
+nothing.
+
+Separately, the `filtered` CTE is referenced three times, and PostgreSQL
+materialises a CTE referenced more than once. The arms then scanned a
+materialised result, so neither the HNSW nor the GIN index could be used:
+
+```text
+CTE filtered -> Seq Scan on fhir_chunks (77,466 rows)
+vector arm   -> Sort, external merge Disk: 6480kB
+lexical arm  -> CTE Scan, Rows Removed by Filter: 77466
+Execution Time: 3871 ms
+```
+
+**Fix**
+
+Declare the CTE `AS NOT MATERIALIZED`, and relax the conjunction to OR by
+reusing `websearch_to_tsquery` for tokenising and escaping and rewriting its
+operator:
+
+```sql
+NULLIF(replace(websearch_to_tsquery('english', $8)::text, ' & ', ' | '), '')::tsquery
+```
+
+An OR-joined query matches any chunk sharing a single common word, so an
+equally weighted arm then outvoted semantic similarity and pushed
+`MedicationRequest` rows out of asthma-medication questions. The fusion is now
+weighted, `LEXICAL_WEIGHT = 0.5`.
+
+**Verification**
+
+| | Before | After |
+| --- | --- | --- |
+| Unscoped query plan | Seq Scan, 3871 ms | HNSW Index Scan, 1099 ms |
+| Patient-scoped latency | — | 5-24 ms |
+| Lexical rows on real questions | 0 | matches |
+| 17-question set | 4 partially grounded, Q1 wrong | Q1-Q13 all grounded |
+
+This also fixed section 14: with a working lexical arm, "What are Neal's active
+problems?" now returns the clinical conditions rather than only the repeated
+administrative entry.
+
+**Lesson**
+
+A retrieval arm that silently matches nothing looks exactly like a working one
+from the outside — end-to-end answers still improved, because the other arm
+carried it. Assert that each arm returns rows, not just that the fused result
+looks better. And check the query plan before assuming an index is used: a CTE
+referenced more than once is an optimisation fence by default.
 
 ## Repeatable Checks
 

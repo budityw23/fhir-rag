@@ -16,7 +16,7 @@ class Embedder:
         "hb a1c": "hemoglobin a1c",
     }
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2", backend: str = "hash"):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2", backend: str = "transformer"):
         if backend not in {"hash", "transformer"}:
             raise ValueError(f"Unsupported embedding backend: {backend}")
         self.model_name = model_name

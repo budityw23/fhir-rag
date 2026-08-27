@@ -1,4 +1,5 @@
 from src.ingestion.text_renderer import (
+    render_allergy_intolerance,
     render_care_plan,
     render_condition,
     render_medication_request,
@@ -83,3 +84,35 @@ def test_unknown_resource_uses_readable_fallback():
     assert text == "Unknown: status: active."
     assert "{" not in text and "}" not in text
 
+
+
+def test_renders_a_text_only_allergy_manifestation():
+    # FHIR permits a CodeableConcept carrying only free text. Dropping it left
+    # the allergy rendered with no reaction detail at all.
+    resource = {
+        "resourceType": "AllergyIntolerance",
+        "code": {"coding": [{"code": "227493005", "display": "Cashew nuts"}]},
+        "reaction": [{"manifestation": [{"text": "Anaphylaxis"}], "severity": "severe"}],
+        "patient": {"reference": "Patient/abc"},
+    }
+    rendered = render_allergy_intolerance(resource)
+    assert "Anaphylaxis" in rendered
+    assert "severe" in rendered
+
+
+def test_prefers_a_coded_manifestation_over_its_text():
+    resource = {
+        "resourceType": "AllergyIntolerance",
+        "code": {"coding": [{"code": "1", "display": "Fish"}]},
+        "reaction": [
+            {
+                "manifestation": [
+                    {"coding": [{"code": "267036007", "display": "Dyspnea"}], "text": "ignored"}
+                ]
+            }
+        ],
+        "patient": {"reference": "Patient/abc"},
+    }
+    rendered = render_allergy_intolerance(resource)
+    assert "Dyspnea" in rendered
+    assert "ignored" not in rendered

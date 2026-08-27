@@ -110,3 +110,11 @@ def test_keeps_recency_order_within_a_rank():
         ["Condition"],
     )
     assert suggestions[0].index("Ischemic heart disease") < suggestions[0].index("Gout")
+
+
+def test_empty_record_is_not_offered_a_medication_question():
+    # routes.py passes empty lists when a patient has no matching rows; the
+    # fallback must not imply MedicationRequest resources exist.
+    suggestions = build_suggestions([], [])
+    assert not any("medications" in item.lower() for item in suggestions)
+    assert suggestions

@@ -62,8 +62,16 @@ i.e. the re-embed did not land. A full re-ingest of ~77k chunks takes about
 
 ## `db/init.sql` only runs on a fresh volume
 
-Schema edits do not reach a running database. Apply them with `psql` against
-`fhir_rag-db-1` as well as editing the file, or the two drift apart.
+Schema edits do not reach a running database. `init.sql` is written to be
+idempotent — `CREATE TABLE IF NOT EXISTS` plus separate `ALTER TABLE ... ADD
+COLUMN IF NOT EXISTS` — so it can be replayed against a live database:
+
+```bash
+docker compose exec -T db psql -U fhir -d fhir_rag -f - < db/init.sql
+```
+
+Ship anything that alters an existing table as a numbered file in
+`db/migrations/` too, since a deployed database will never re-run `init.sql`.
 
 ## Never commit
 
@@ -74,15 +82,22 @@ any `git add -A`.
 
 ## Retrieval facts worth knowing before changing it
 
-- `hybrid_search` fuses a vector arm and a Postgres full-text arm with
-  Reciprocal Rank Fusion. Both arms over-fetch `TOP_K * 5` before fusion.
+- `hybrid_search` fuses a vector arm and a Postgres full-text arm with weighted
+  Reciprocal Rank Fusion. Both arms over-fetch `TOP_K * 5` before fusion, and
+  the lexical arm carries half weight because its tsquery is OR-joined.
+- The `filtered` CTE must stay `NOT MATERIALIZED`. It is referenced three
+  times, and PostgreSQL materialises such a CTE by default, which hides the
+  HNSW and GIN indexes and turned a 5 ms query into 3.9 s. Check the plan with
+  `EXPLAIN (ANALYZE)` after touching that query.
+- Assert that each retrieval arm returns rows. The lexical arm matched nothing
+  on every real question and still looked healthy, because the vector arm
+  carried the fused result.
 - Patient-scoped queries disable index scans on purpose: HNSW picks global
   neighbours before the patient filter is applied and can return nothing.
 - Synthea emits one `Medication review due` Condition per visit. These are
-  near-identical, cluster tightly, and can occupy every `Condition` slot, so
-  generic "active problems" questions under-report. Naming conditions in the
-  query works around it; the real fix is diversity-aware retrieval (MMR, or
-  collapsing by `(resource_type, code)`).
+  near-identical, cluster tightly, and once occupied every `Condition` slot.
+  The lexical arm now surfaces real diagnoses, but diversity-aware retrieval
+  (MMR, or collapsing by `(resource_type, code)`) is still the robust fix.
 - If an answer names the right entities but misses attributes, read the stored
   `text_content` for that resource before suspecting retrieval or the model —
   a renderer that drops a field makes it uncitable.

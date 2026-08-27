@@ -3,7 +3,12 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.retrieval.hybrid_search import ARM_OVERFETCH, RRF_K, hybrid_search
+from src.retrieval.hybrid_search import (
+    ARM_OVERFETCH,
+    LEXICAL_WEIGHT,
+    RRF_K,
+    hybrid_search,
+)
 
 
 def _row(resource_id: str, similarity: float) -> dict:
@@ -73,7 +78,9 @@ async def test_hybrid_search_supports_no_filters_and_zero_results():
 
     assert results == []
     _, *parameters = connection.fetch.await_args.args
-    assert parameters[1:] == [None, None, None, None, 10, 10 * ARM_OVERFETCH, None, RRF_K]
+    assert parameters[1:] == [
+        None, None, None, None, 10, 10 * ARM_OVERFETCH, None, RRF_K, LEXICAL_WEIGHT,
+    ]
 
 
 @pytest.mark.asyncio
