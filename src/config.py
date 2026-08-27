@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     vertex_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
     ollama_base_url: str = "http://localhost:11434"
-    embedding_backend: Literal["hash", "transformer"] = "hash"
+    embedding_backend: Literal["hash", "transformer"] = "transformer"
     embedding_model: str = "all-MiniLM-L6-v2"
     top_k: int = 25
     max_reference_hops: int = 2
