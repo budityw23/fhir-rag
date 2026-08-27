@@ -13,7 +13,15 @@ from ..generation.citation_mapper import map_citations
 from ..retrieval.context_builder import build_context
 from ..retrieval.hybrid_search import hybrid_search
 from ..retrieval.reference_resolver import resolve_references
-from .schemas import CitationResponse, HealthResponse, PatientSummary, QueryRequest, QueryResponse
+from .schemas import (
+    CitationResponse,
+    HealthResponse,
+    PatientSummary,
+    QueryRequest,
+    QueryResponse,
+    SuggestionsResponse,
+)
+from .suggestions import build_suggestions
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -102,6 +110,42 @@ async def list_patients(request: Request) -> list[PatientSummary]:
     except Exception as exc:
         logger.exception("Patient listing failed: %s", exc)
         raise HTTPException(status_code=500, detail="Unable to list patients") from exc
+
+
+@router.get("/api/suggestions", response_model=SuggestionsResponse)
+async def suggestions(request: Request, patient_ref: str | None = None) -> SuggestionsResponse:
+    """Return example questions grounded in one patient's indexed resources."""
+    try:
+        pool = _pool(request)
+        if patient_ref is None:
+            return SuggestionsResponse(
+                patient_ref=None, suggestions=build_suggestions([], [])
+            )
+        condition_rows = await pool.fetch(
+            """
+            SELECT text_content
+            FROM fhir_chunks
+            WHERE patient_ref = $1
+              AND resource_type = 'Condition'
+              AND text_content ILIKE '%Status: active%'
+            ORDER BY resource_date DESC NULLS LAST
+            """,
+            patient_ref,
+        )
+        type_rows = await pool.fetch(
+            "SELECT DISTINCT resource_type FROM fhir_chunks WHERE patient_ref = $1",
+            patient_ref,
+        )
+        return SuggestionsResponse(
+            patient_ref=patient_ref,
+            suggestions=build_suggestions(
+                [row["text_content"] for row in condition_rows],
+                [row["resource_type"] for row in type_rows],
+            ),
+        )
+    except Exception as exc:
+        logger.exception("Suggestion lookup failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Unable to build suggestions") from exc
 
 
 @router.get("/api/resources/{resource_id}")
