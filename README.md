@@ -1,6 +1,8 @@
 # Diabetes FHIR RAG
 
-Diabetes FHIR RAG is a clinical data assistant for grounded question answering over Type 1 and Type 2 diabetes records. It ingests Synthea FHIR R4 Bundles, preserves resource boundaries and references, retrieves relevant resources with pgvector plus structured filters, and returns answers with resource-level citations.
+Diabetes FHIR RAG is a clinical data assistant for grounded question answering over patient records. It ingests Synthea FHIR R4 Bundles, preserves resource boundaries and references, retrieves relevant resources by fusing vector and full-text search over pgvector, and returns answers with resource-level citations.
+
+The evaluation set and example queries are diabetes-focused, but retrieval and generation are condition-agnostic: a generated Synthea cohort contains whatever conditions Synthea produced, and the system answers over those records as readily as over diabetes ones.
 
 ## Architecture
 
@@ -98,8 +100,8 @@ flowchart LR
     C -->|No| X[Skip]
     D --> E[FHIR Chunker<br/>1 resource = 1 chunk]
     E --> F[Extract Metadata<br/>dates, codes, refs]
-    F --> G[Embedder<br/>local hash vectors by default]
-    G --> H[(pgvector<br/>384-dim HNSW)]
+    F --> G[Embedder<br/>all-MiniLM-L6-v2 by default]
+    G --> H[(pgvector<br/>384-dim HNSW + GIN tsvector)]
 
     style A fill:#f4f6ef,stroke:#d7dfd5
     style H fill:#dff3e5,stroke:#176536
@@ -111,11 +113,11 @@ flowchart LR
 ```mermaid
 flowchart TD
     Q[User Question] --> E[Embed Query<br/>all-MiniLM-L6-v2]
-    E --> S[Hybrid Search<br/>vector + SQL filters]
+    E --> S[Hybrid Search<br/>vector + full-text, RRF fused]
     S --> R[Reference Resolver<br/>2-hop max]
     R --> C[Context Builder<br/>group by type]
     C --> P[Render Prompt<br/>clinical_qa.jinja2]
-    P --> L[LLM Generate<br/>Claude / Ollama]
+    P --> L[LLM Generate<br/>Claude / Gemini / Vertex / Ollama]
     L --> M[Citation Mapper<br/>extract ResourceType/id]
     M --> A{All citations<br/>match?}
     A -->|All| G[Grounded]
@@ -139,7 +141,7 @@ flowchart TD
 sequenceDiagram
     participant UI as Frontend<br/>(Alpine.js)
     participant API as FastAPI<br/>routes.py
-    participant EMB as Embedder<br/>local hash vectors by default
+    participant EMB as Embedder<br/>all-MiniLM-L6-v2 by default
     participant PG as pgvector<br/>fhir_chunks
     participant REF as reference_resolver
     participant CTX as context_builder
@@ -181,6 +183,7 @@ erDiagram
         text[]      references     "outbound FHIR refs"
         text        text_content   "human-readable render"
         vector_384  embedding      "HNSW index (cosine)"
+        tsvector    text_search    "generated from text_content, GIN index"
         timestamptz created_at
     }
 ```
@@ -206,7 +209,7 @@ flowchart LR
 
 ## Quickstart
 
-1. Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`, or select `LLM_PROVIDER=ollama`.
+1. Copy `.env.example` to `.env` and set the key for your provider: `ANTHROPIC_API_KEY` (`LLM_PROVIDER=claude`), `GEMINI_API_KEY` (`gemini`), `VERTEX_API_KEY` (`vertex`), or select `LLM_PROVIDER=ollama` for a local model.
 2. Install Synthea and generate FHIR data. Synthea requires Java 17 or newer:
 
    ```bash
@@ -233,7 +236,15 @@ flowchart LR
 
 Open `http://localhost:8000` for the UI or `http://localhost:8000/docs` for the API documentation.
 
-The default `EMBEDDING_BACKEND=hash` uses a deterministic local vectorizer and keeps the Docker image lightweight. For higher-quality semantic retrieval, install the optional `semantic` extra and set `EMBEDDING_BACKEND=transformer`.
+`EMBEDDING_BACKEND` defaults to `transformer` (`all-MiniLM-L6-v2`, CPU). The image installs PyTorch from the CPU wheel index and bakes the model weights in, which costs roughly 2 GB of image size and no GPU. Set `EMBEDDING_BACKEND=hash` only for dependency-free smoke tests: the hash backend matches tokens literally, retrieves poorly, and is not suitable for evaluation.
+
+Both backends produce 384-dimensional vectors, so switching does not require a schema change — but it **does** require re-running ingestion, which upserts embeddings in place. Confirm the vectors match the configured backend afterwards; hash vectors are sparse, transformer vectors are dense:
+
+```bash
+docker compose exec -T db psql -U fhir -d fhir_rag -c \
+  "SELECT round(avg(cardinality(array_positions(embedding::real[], 0)))) AS avg_zeros
+   FROM (SELECT embedding FROM fhir_chunks LIMIT 500) s"
+```
 
 ## Example Queries
 
@@ -242,11 +253,21 @@ The default `EMBEDDING_BACKEND=hash` uses a deterministic local vectorizer and k
 - "When was this patient's last diabetic eye examination?" should retrieve the relevant `Procedure` and report its recorded date.
 - "What insulin pump model is this patient using?" should say "insufficient data" when the FHIR context does not contain a device model.
 
+Retrieval is not diabetes-specific. Against a pediatric atopic patient in the same corpus, the following are answered with citations:
+
+- "Which allergies are documented, and what reaction did each cause?" returns each `AllergyIntolerance` with its manifestations and severity.
+- "What was his BMI percentile at the most recent well-child visit?" joins the BMI `Observation` to the `Encounter` typed as a well-child visit.
+- "Did any positive IgE result correspond to an allergy recorded on his list?" cross-references `Observation` results against `AllergyIntolerance` entries.
+
+Negative controls behave the same way: HbA1c, spirometry, and hospitalization questions all return "insufficient data" for a patient who has none of those records.
+
 ## Design Decisions
 
 - **HNSW over IVFFlat:** HNSW is insert-friendly and does not require list tuning or retraining after bulk ingestion. It is appropriate for the variable-sized development dataset.
 - **FHIR-aware chunking:** one resource is one chunk, with resource type, patient reference, dates, codes, and outbound references retained as metadata. This keeps citations precise and prevents clinically unrelated resources from being merged.
-- **Hybrid search:** vector similarity handles natural-language questions while SQL filters support exact patient, resource-type, and date constraints.
+- **Hybrid search:** a vector arm and a Postgres full-text arm each retrieve `TOP_K * 5` candidates and are combined with Reciprocal Rank Fusion (k=60); SQL filters apply patient, resource-type, and date constraints to both. The lexical arm exists because pure vector search missed questions whose wording named a resource type outright — "immunization schedule" ranked the patient's `Immunization` resources at #33.
+- **Semantic embeddings by default:** `all-MiniLM-L6-v2` on CPU. The earlier hash backend matched tokens literally and could not connect "allergies" to `AllergyIntolerance`. The hash backend remains available for dependency-free runs but is not recommended for real retrieval.
+- **Bounded thinking budget:** Gemini 2.5 charges internal reasoning against `maxOutputTokens`, which truncated answers mid-citation. Requests set `thinkingBudget` explicitly so the visible answer is always allocated room.
 - **Strict grounding:** the prompt requires citations in `[ResourceType/id]` format and an "insufficient data" response when retrieved context cannot support an answer.
 
 ## Evaluation
@@ -265,4 +286,8 @@ The harness prints per-question and aggregate metrics for retrieval recall, cita
 
 The v1 system is limited to indexed FHIR resources and cannot infer facts absent from the data. Synthea does not provide every clinical workflow, including continuous glucose monitor history and insulin pump model details. It also does not replace clinical judgment.
 
-Planned v2 work includes HAPI FHIR and SMART on FHIR integration, graph-based reference reasoning, cross-encoder reranking, temporal query decomposition, cohort analytics, caching, audit logging, access control, and production observability.
+**Near-duplicate chunks crowd out real diagnoses.** Synthea emits one `Medication review due` Condition per visit. These are near-identical, so they embed to nearly the same vector and can occupy every `Condition` slot in the retrieved set. A generic "what are the active problems?" question may therefore return only the administrative entry. Naming the conditions in the question retrieves them correctly; asking the model to exclude the duplicates does not, because exclusion happens after retrieval. The fix is diversity-aware retrieval — MMR re-ranking, or collapsing candidates by `(resource_type, code)` before applying `top_k`. See `docs/notes/fhir-rag-debugging.md`.
+
+Planned v2 work includes diversity-aware retrieval, HAPI FHIR and SMART on FHIR integration, graph-based reference reasoning, cross-encoder reranking, temporal query decomposition, cohort analytics, caching, audit logging, access control, and production observability.
+
+`docs/notes/fhir-rag-debugging.md` records each defect found while bringing this system up, with the evidence used to identify it and the fix applied.
