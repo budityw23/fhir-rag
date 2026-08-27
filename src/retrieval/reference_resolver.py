@@ -5,7 +5,7 @@ from .hybrid_search import SearchResult, result_from_row
 
 REFERENCE_QUERY = """
     SELECT resource_id, resource_type, patient_ref, resource_date,
-           codes, references, text_content
+           codes, "references", text_content
     FROM fhir_chunks
     WHERE resource_id = ANY($1)
 """
@@ -50,4 +50,3 @@ def _unique_references(results: list[SearchResult], seen: set[str]) -> list[str]
             if reference and reference not in seen and reference not in references:
                 references.append(reference)
     return references
-

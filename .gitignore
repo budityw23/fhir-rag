@@ -12,7 +12,7 @@ venv/
 .env
 
 # Data
-data/synthea/
+data/
 
 # IDE
 .vscode/
@@ -33,3 +33,13 @@ htmlcov/
 
 # Eval outputs
 eval/results/
+
+# Credentials - never commit service-account keys
+*credentials*.json
+*-key.json
+service-account*.json
+
+# Large downloaded tooling and generated output
+synthea-with-dependencies.jar
+*.jar
+output/

@@ -31,7 +31,7 @@ class _Acquire:
         return False
 
 
-def test_store_chunks_uses_pgvector_and_idempotent_insert():
+def test_store_chunks_uses_pgvector_and_upserts_embeddings():
     connection = Mock()
     connection.executemany = AsyncMock()
     pool = Mock()
@@ -45,7 +45,11 @@ def test_store_chunks_uses_pgvector_and_idempotent_insert():
     register.assert_awaited_once_with(connection)
     connection.executemany.assert_awaited_once()
     query, records = connection.executemany.await_args.args
-    assert "ON CONFLICT (resource_id) DO NOTHING" in query
+    # Re-ingestion must refresh embeddings in place. DO NOTHING would silently
+    # keep vectors produced by a previously configured embedding backend.
+    assert "ON CONFLICT (resource_id) DO UPDATE SET" in query
+    assert "embedding = EXCLUDED.embedding" in query
+    assert "text_content = EXCLUDED.text_content" in query
     assert records[0][0] == "Observation/a"
     assert '"code": "4548-4"' in records[0][4]
 

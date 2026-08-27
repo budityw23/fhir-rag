@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fhir.resources.bundle import Bundle
-
 logger = logging.getLogger(__name__)
 
 
@@ -41,40 +39,57 @@ def _resource_id(resource: dict, resource_type: str) -> str | None:
     return f"{resource_type}/{resource_id}"
 
 
+def _reference_map(entries: list[Any]) -> dict[str, str]:
+    """Map Bundle fullUrls to canonical FHIR resource IDs."""
+    references: dict[str, str] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        full_url = entry.get("fullUrl")
+        resource = entry.get("resource")
+        if not isinstance(full_url, str) or not isinstance(resource, dict):
+            continue
+        resource_type = resource.get("resourceType")
+        if not isinstance(resource_type, str):
+            continue
+        resource_id = _resource_id(resource, resource_type)
+        if resource_id:
+            references[full_url] = resource_id
+    return references
+
+
+def _normalize_reference(reference: str, reference_map: dict[str, str] | None) -> str:
+    return (reference_map or {}).get(reference, reference)
+
+
 def parse_bundle(bundle_path: Path) -> list[ParsedResource]:
     """Parse a FHIR Bundle JSON file, return individual resources."""
     try:
         with bundle_path.open(encoding="utf-8") as file:
             payload = json.load(file)
-        bundle = Bundle.model_validate(payload)
     except (OSError, json.JSONDecodeError, TypeError) as exc:
         logger.warning("Skipping invalid FHIR Bundle %s: %s", bundle_path, exc)
         return []
-    except ValueError as exc:
-        # Validate entries independently as well, so one malformed resource
-        # does not discard otherwise usable resources from the Bundle.
-        logger.warning("FHIR Bundle %s has invalid resources: %s", bundle_path, exc)
-        valid_entries = []
-        for entry in payload.get("entry", []) if isinstance(payload, dict) else []:
-            try:
-                candidate = {
-                    "resourceType": "Bundle",
-                    "type": payload.get("type", "collection"),
-                    "entry": [entry],
-                }
-                valid_entries.extend(Bundle.model_validate(candidate).entry or [])
-            except (TypeError, ValueError) as entry_exc:
-                logger.warning("Skipping invalid resource entry in %s: %s", bundle_path, entry_exc)
-        bundle = type("ValidatedBundle", (), {"entry": valid_entries})()
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("entry"), list):
+        logger.warning("Skipping FHIR Bundle %s without an entry list", bundle_path)
+        return []
+
+    # Preserve fullUrl values from the original JSON so urn:uuid links can be
+    # converted to canonical ResourceType/id references. Whole-Bundle Pydantic
+    # validation is deliberately avoided: Synthea's large valid bundles are
+    # expensive to validate and may not match the installed model version.
+    entries = payload["entry"]
+    reference_map = _reference_map(entries)
 
     parsed: list[ParsedResource] = []
-    for entry in bundle.entry or []:
-        resource = entry.resource
-        if resource is None:
+    for entry in entries:
+        resource_json = entry.get("resource") if isinstance(entry, dict) else None
+        if resource_json is None:
             logger.warning("Skipping empty resource entry in %s", bundle_path)
             continue
-
-        resource_json = resource.model_dump(exclude_none=True)
+        if not isinstance(resource_json, dict):
+            continue
         resource_type = resource_json.get("resourceType")
         if resource_type not in SUPPORTED_TYPES:
             continue
@@ -93,8 +108,8 @@ def parse_bundle(bundle_path: Path) -> list[ParsedResource]:
                 resource_id=resource_id,
                 resource_type=resource_type,
                 resource_json=resource_json,
-                patient_ref=resolve_patient_ref(resource_json, resource_type),
-                references=extract_references(resource_json),
+                patient_ref=resolve_patient_ref(resource_json, resource_type, reference_map),
+                references=extract_references(resource_json, reference_map),
             )
         )
     return parsed
@@ -114,7 +129,11 @@ def parse_all_bundles(data_dir: Path) -> list[ParsedResource]:
     return resources
 
 
-def resolve_patient_ref(resource: dict, resource_type: str) -> str | None:
+def resolve_patient_ref(
+    resource: dict,
+    resource_type: str,
+    reference_map: dict[str, str] | None = None,
+) -> str | None:
     """Extract patient reference from a resource. Handles subject, patient fields."""
     if resource_type == "Patient":
         return _resource_id(resource, resource_type)
@@ -123,24 +142,25 @@ def resolve_patient_ref(resource: dict, resource_type: str) -> str | None:
     for field in ("subject", "patient"):
         reference = _reference_value(resource.get(field))
         if reference:
-            return reference
+            return _normalize_reference(reference, reference_map)
     return None
 
 
-def extract_references(resource: dict) -> list[str]:
+def extract_references(resource: dict, reference_map: dict[str, str] | None = None) -> list[str]:
     """Walk resource JSON and collect all Reference values."""
-    references: list[str] = []
-
     def walk(value: Any) -> None:
         if isinstance(value, dict):
             reference = _reference_value(value)
-            if reference and reference not in references:
-                references.append(reference)
+            if reference:
+                normalized = _normalize_reference(reference, reference_map)
+                if normalized not in extracted:
+                    extracted.append(normalized)
             for child in value.values():
                 walk(child)
         elif isinstance(value, list):
             for child in value:
                 walk(child)
 
+    extracted: list[str] = []
     walk(resource)
-    return references
+    return extracted

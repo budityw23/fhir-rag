@@ -51,6 +51,7 @@ async def query_patient(request: Request, query: QueryRequest) -> QueryResponse:
         primary = await hybrid_search(
             pool,
             query_embedding,
+            query_text=query.question,
             patient_ref=query.patient_ref,
             resource_types=query.resource_types,
             top_k=settings.top_k,
@@ -110,7 +111,7 @@ async def get_resource(request: Request, resource_id: str) -> dict:
         row = await _pool(request).fetchrow(
             """
             SELECT resource_id, resource_type, patient_ref, resource_date,
-                   codes, references, text_content, created_at
+                   codes, "references", text_content, created_at
             FROM fhir_chunks
             WHERE resource_id = $1
             """,
@@ -135,4 +136,3 @@ async def health(request: Request) -> HealthResponse:
     except Exception as exc:
         logger.exception("Health check failed: %s", exc)
         raise HTTPException(status_code=500, detail="Database is unavailable") from exc
-

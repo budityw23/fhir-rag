@@ -12,6 +12,11 @@ def _first_coding(resource: dict, *paths: str) -> tuple[str, str, str] | None:
                 value = None
                 break
             value = value.get(part)
+        # Several FHIR fields (Encounter.type, AllergyIntolerance.reaction[].
+        # manifestation) are arrays of CodeableConcept rather than a single
+        # one; without this the walk yields "unspecified" for every Encounter.
+        if isinstance(value, list):
+            value = next((item for item in value if isinstance(item, dict)), None)
         codings = value.get("coding", []) if isinstance(value, dict) else []
         if isinstance(codings, list):
             for coding in codings:
@@ -75,7 +80,7 @@ def _status(resource: dict, *fields: str) -> str | None:
 
 
 def _join(items: Iterable[str]) -> str:
-    return ", ".join(item for item in items if item)
+    return ", ".join(str(item) for item in items if item)
 
 
 def render_resource_text(resource_json: dict, resource_type: str) -> str:
@@ -176,12 +181,45 @@ def render_encounter(resource: dict) -> str:
     return "\n".join(lines)
 
 
+def _reaction_text(reaction: dict) -> str | None:
+    """Render one reaction as its manifestations plus optional severity."""
+    manifestations = [
+        _coded_text(_first_coding({"m": item}, "m"))
+        for item in reaction.get("manifestation", [])
+        if isinstance(item, dict)
+    ]
+    manifestations = [text for text in manifestations if text != "unspecified"]
+    if not manifestations:
+        return None
+    severity = reaction.get("severity")
+    rendered = _join(manifestations)
+    return f"{rendered} ({severity})" if isinstance(severity, str) and severity else rendered
+
+
 def render_allergy_intolerance(resource: dict) -> str:
     code = _coded_text(_first_coding(resource, "code"))
     status = _status(resource, "clinicalStatus", "verificationStatus")
     lines = [f"AllergyIntolerance: {code}."]
     if status:
         lines.append(f"Status: {status}.")
+    categories = [item for item in resource.get("category", []) if isinstance(item, str)]
+    if categories:
+        lines.append(f"Category: {_join(categories)}.")
+    criticality = resource.get("criticality")
+    if isinstance(criticality, str) and criticality:
+        lines.append(f"Criticality: {criticality}.")
+    # Without this the record names the allergen but not what it did, so
+    # "what reaction did each allergy cause" is unanswerable from the chunk.
+    reactions = [
+        text
+        for item in resource.get("reaction", [])
+        if isinstance(item, dict) and (text := _reaction_text(item))
+    ]
+    if reactions:
+        lines.append(f"Reactions: {'; '.join(reactions)}.")
+    recorded = _date(resource, "recordedDate", "onsetDateTime")
+    if recorded:
+        lines.append(f"Recorded: {recorded}.")
     lines.append(f"Patient: {_patient(resource)}.")
     return "\n".join(lines)
 

@@ -1,5 +1,6 @@
 """FastAPI application factory and lifecycle configuration."""
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -20,12 +21,25 @@ async def lifespan(app: FastAPI):
     if owns_pool:
         app.state.pool = await init_pool()
     if app.state.embedder is None:
-        app.state.embedder = Embedder(settings.embedding_model)
+        app.state.embedder = Embedder(settings.embedding_model, settings.embedding_backend)
+        # The transformer backend loads its weights lazily on first use, which
+        # would otherwise stall the first real query by ~10s. Pay that cost at
+        # startup instead, off the request path.
+        await asyncio.to_thread(app.state.embedder.embed_query, "warmup")
     if app.state.llm_client is None:
         app.state.llm_client = LLMClient(
             settings.llm_provider,
-            api_key=settings.anthropic_api_key,
+            api_key=(
+                settings.gemini_api_key
+                if settings.llm_provider == "gemini"
+                else (
+                    settings.vertex_api_key
+                    if settings.llm_provider == "vertex"
+                    else settings.anthropic_api_key
+                )
+            ),
             ollama_url=settings.ollama_base_url,
+            gemini_model=settings.gemini_model,
         )
     try:
         yield

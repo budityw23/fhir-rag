@@ -98,7 +98,7 @@ flowchart LR
     C -->|No| X[Skip]
     D --> E[FHIR Chunker<br/>1 resource = 1 chunk]
     E --> F[Extract Metadata<br/>dates, codes, refs]
-    F --> G[Embedder<br/>all-MiniLM-L6-v2]
+    F --> G[Embedder<br/>local hash vectors by default]
     G --> H[(pgvector<br/>384-dim HNSW)]
 
     style A fill:#f4f6ef,stroke:#d7dfd5
@@ -139,7 +139,7 @@ flowchart TD
 sequenceDiagram
     participant UI as Frontend<br/>(Alpine.js)
     participant API as FastAPI<br/>routes.py
-    participant EMB as Embedder<br/>all-MiniLM-L6-v2
+    participant EMB as Embedder<br/>local hash vectors by default
     participant PG as pgvector<br/>fhir_chunks
     participant REF as reference_resolver
     participant CTX as context_builder
@@ -207,14 +207,18 @@ flowchart LR
 ## Quickstart
 
 1. Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`, or select `LLM_PROVIDER=ollama`.
-2. Generate diabetic FHIR data if needed:
+2. Install Synthea and generate FHIR data. Synthea requires Java 17 or newer:
 
    ```bash
-   java -jar synthea.jar -m diabetes -p 50
-   java -jar synthea.jar -m type1_diabetes -p 20
+   curl -L https://github.com/synthetichealth/synthea/releases/download/master-branch-latest/synthea-with-dependencies.jar -o synthea-with-dependencies.jar
+   mkdir -p data/synthea
+   java -jar synthea-with-dependencies.jar -p 70 --exporter.fhir.export=true
+   cp output/fhir/*.json data/synthea/
    ```
 
-   Place the generated Bundles in `data/synthea/`.
+   Do not use `-m diabetes` or `-m type1_diabetes` for this application: `-m` filters Synthea's loaded modules and can omit the observations, conditions, and medication records this RAG app needs. Normal generation produces a broader synthetic record set; diabetes-specific cohorts require a dedicated Synthea module/configuration rather than `-m` alone.
+
+   If you already downloaded the JAR, run the commands from the directory containing `synthea-with-dependencies.jar`. The generated FHIR Bundles must be copied into `data/synthea/` before ingestion.
 3. Start the stack:
 
    ```bash
@@ -228,6 +232,8 @@ flowchart LR
    ```
 
 Open `http://localhost:8000` for the UI or `http://localhost:8000/docs` for the API documentation.
+
+The default `EMBEDDING_BACKEND=hash` uses a deterministic local vectorizer and keeps the Docker image lightweight. For higher-quality semantic retrieval, install the optional `semantic` extra and set `EMBEDDING_BACKEND=transformer`.
 
 ## Example Queries
 

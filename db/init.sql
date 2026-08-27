@@ -8,9 +8,12 @@ CREATE TABLE IF NOT EXISTS fhir_chunks (
     patient_ref TEXT NOT NULL,
     resource_date TIMESTAMPTZ,
     codes JSONB DEFAULT '[]',
-    references TEXT[] DEFAULT '{}',
+    "references" TEXT[] DEFAULT '{}',
     text_content TEXT NOT NULL,
     embedding vector(384) NOT NULL,
+    -- Lexical arm of hybrid retrieval. Generated so it can never drift from
+    -- text_content, and so re-ingestion needs no extra write path.
+    text_search TSVECTOR GENERATED ALWAYS AS (to_tsvector('english', text_content)) STORED,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -20,4 +23,4 @@ CREATE INDEX IF NOT EXISTS idx_fhir_chunks_resource_type ON fhir_chunks (resourc
 CREATE INDEX IF NOT EXISTS idx_fhir_chunks_patient_ref ON fhir_chunks (patient_ref);
 CREATE INDEX IF NOT EXISTS idx_fhir_chunks_resource_date ON fhir_chunks (resource_date);
 CREATE INDEX IF NOT EXISTS idx_fhir_chunks_resource_id ON fhir_chunks (resource_id);
-
+CREATE INDEX IF NOT EXISTS idx_fhir_chunks_text_search ON fhir_chunks USING gin (text_search);
