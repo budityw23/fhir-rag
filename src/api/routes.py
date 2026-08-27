@@ -13,7 +13,15 @@ from ..generation.citation_mapper import map_citations
 from ..retrieval.context_builder import build_context
 from ..retrieval.hybrid_search import hybrid_search
 from ..retrieval.reference_resolver import resolve_references
-from .schemas import CitationResponse, HealthResponse, PatientSummary, QueryRequest, QueryResponse
+from .schemas import (
+    CitationResponse,
+    HealthResponse,
+    PatientSummary,
+    QueryRequest,
+    QueryResponse,
+    SuggestionsResponse,
+)
+from .suggestions import build_suggestions
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -51,6 +59,7 @@ async def query_patient(request: Request, query: QueryRequest) -> QueryResponse:
         primary = await hybrid_search(
             pool,
             query_embedding,
+            query_text=query.question,
             patient_ref=query.patient_ref,
             resource_types=query.resource_types,
             top_k=settings.top_k,
@@ -103,6 +112,42 @@ async def list_patients(request: Request) -> list[PatientSummary]:
         raise HTTPException(status_code=500, detail="Unable to list patients") from exc
 
 
+@router.get("/api/suggestions", response_model=SuggestionsResponse)
+async def suggestions(request: Request, patient_ref: str | None = None) -> SuggestionsResponse:
+    """Return example questions grounded in one patient's indexed resources."""
+    try:
+        pool = _pool(request)
+        if patient_ref is None:
+            return SuggestionsResponse(
+                patient_ref=None, suggestions=build_suggestions([], [])
+            )
+        condition_rows = await pool.fetch(
+            """
+            SELECT text_content
+            FROM fhir_chunks
+            WHERE patient_ref = $1
+              AND resource_type = 'Condition'
+              AND text_content ILIKE '%Status: active%'
+            ORDER BY resource_date DESC NULLS LAST
+            """,
+            patient_ref,
+        )
+        type_rows = await pool.fetch(
+            "SELECT DISTINCT resource_type FROM fhir_chunks WHERE patient_ref = $1",
+            patient_ref,
+        )
+        return SuggestionsResponse(
+            patient_ref=patient_ref,
+            suggestions=build_suggestions(
+                [row["text_content"] for row in condition_rows],
+                [row["resource_type"] for row in type_rows],
+            ),
+        )
+    except Exception as exc:
+        logger.exception("Suggestion lookup failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Unable to build suggestions") from exc
+
+
 @router.get("/api/resources/{resource_id}")
 async def get_resource(request: Request, resource_id: str) -> dict:
     """Return one resource's text and searchable metadata."""
@@ -110,7 +155,7 @@ async def get_resource(request: Request, resource_id: str) -> dict:
         row = await _pool(request).fetchrow(
             """
             SELECT resource_id, resource_type, patient_ref, resource_date,
-                   codes, references, text_content, created_at
+                   codes, "references", text_content, created_at
             FROM fhir_chunks
             WHERE resource_id = $1
             """,
@@ -135,4 +180,3 @@ async def health(request: Request) -> HealthResponse:
     except Exception as exc:
         logger.exception("Health check failed: %s", exc)
         raise HTTPException(status_code=500, detail="Database is unavailable") from exc
-

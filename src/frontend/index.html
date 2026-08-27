@@ -27,7 +27,7 @@
 
         <label for="patient">Patient</label>
         <select id="patient" x-model="selectedPatient" :disabled="loading">
-          <option value="">All diabetic patients</option>
+          <option value="">All patients</option>
           <template x-for="patient in patients" :key="patient.id">
             <option :value="patient.id" x-text="patient.name + ' — ' + patient.id"></option>
           </template>
@@ -46,7 +46,7 @@
             x-model="question"
             @keydown.enter.prevent="submitQuestion()"
             :disabled="loading"
-            placeholder="What is the latest HbA1c?"
+            placeholder="Ask anything about this patient's record"
             aria-label="Clinical question"
           ></textarea>
           <div class="form-footer">
@@ -58,7 +58,7 @@
           </div>
         </form>
 
-        <div class="examples" aria-label="Example questions">
+        <div class="examples" aria-label="Example questions" x-show="examples.length" x-cloak>
           <span>Try asking</span>
           <template x-for="example in examples" :key="example">
             <button type="button" class="secondary outline example-button" @click="question = example" x-text="example"></button>
@@ -103,7 +103,7 @@
         </div>
       </section>
     </main>
-    <script defer src="/vendor/alpine.min.js"></script>
     <script defer src="/app.js"></script>
+    <script defer src="/vendor/alpine.min.js"></script>
   </body>
 </html>

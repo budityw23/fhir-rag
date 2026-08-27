@@ -84,3 +84,34 @@ def test_patient_reference_resolution_for_diabetes_resources():
     assert resolve_patient_ref({"subject": {"reference": patient}}, "Observation") == patient
     assert resolve_patient_ref({"subject": {"reference": patient}}, "MedicationRequest") == patient
     assert resolve_patient_ref({"patient": {"reference": patient}}, "Encounter") == patient
+
+
+def test_parse_bundle_normalizes_synthea_urn_references(tmp_path):
+    patient_url = "urn:uuid:patient-1"
+    observation_url = "urn:uuid:observation-1"
+    bundle = {
+        "resourceType": "Bundle",
+        "type": "transaction",
+        "entry": [
+            {
+                "fullUrl": patient_url,
+                "resource": {"resourceType": "Patient", "id": "patient-1"},
+            },
+            {
+                "fullUrl": observation_url,
+                "resource": {
+                    "resourceType": "Observation",
+                    "id": "observation-1",
+                    "subject": {"reference": patient_url},
+                    "basedOn": [{"reference": observation_url}],
+                },
+            },
+        ],
+    }
+    path = tmp_path / "synthea.json"
+    path.write_text(json.dumps(bundle), encoding="utf-8")
+
+    resources = parse_bundle(path)
+
+    assert resources[1].patient_ref == "Patient/patient-1"
+    assert resources[1].references == ["Patient/patient-1", "Observation/observation-1"]

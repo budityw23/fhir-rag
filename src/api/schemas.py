@@ -29,6 +29,11 @@ class PatientSummary(BaseModel):
     birth_date: str | None
 
 
+class SuggestionsResponse(BaseModel):
+    patient_ref: str | None
+    suggestions: list[str]
+
+
 class HealthResponse(BaseModel):
     status: str
     db_connected: bool

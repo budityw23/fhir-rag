@@ -34,7 +34,7 @@ async def ingest_bundles(data_dir: Path, db_url: str) -> dict:
         return stats
 
     print(f"Parsed {len(parsed_resources)} resources from {len(bundle_paths)} bundles")
-    embedder = Embedder(settings.embedding_model)
+    embedder = Embedder(settings.embedding_model, settings.embedding_backend)
     embeddings: list[list[float]] = []
     for start in range(0, len(chunks), EMBED_BATCH_SIZE):
         batch = chunks[start:start + EMBED_BATCH_SIZE]
@@ -63,9 +63,16 @@ async def store_chunks(pool, chunks: list[FHIRChunk], embeddings: list[list[floa
     query = """
         INSERT INTO fhir_chunks (
             resource_id, resource_type, patient_ref, resource_date,
-            codes, references, text_content, embedding
+            codes, "references", text_content, embedding
         ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
-        ON CONFLICT (resource_id) DO NOTHING
+        ON CONFLICT (resource_id) DO UPDATE SET
+            resource_type = EXCLUDED.resource_type,
+            patient_ref = EXCLUDED.patient_ref,
+            resource_date = EXCLUDED.resource_date,
+            codes = EXCLUDED.codes,
+            "references" = EXCLUDED."references",
+            text_content = EXCLUDED.text_content,
+            embedding = EXCLUDED.embedding
     """
     records = [
         (
@@ -84,7 +91,7 @@ async def store_chunks(pool, chunks: list[FHIRChunk], embeddings: list[list[floa
     async with pool.acquire() as connection:
         await register_vector(connection)
         await connection.executemany(query, records)
-    # asyncpg executemany does not return affected-row counts. The SQL is
+    # asyncpg executemany does not return affected-row counts. The upsert is
     # idempotent; callers receive the number of attempted stored chunks.
     return len(records)
 
@@ -108,4 +115,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -22,16 +22,21 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://fhir:fhir@db:5432/fhir_rag}
       LLM_PROVIDER: ${LLM_PROVIDER:-claude}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      VERTEX_API_KEY: ${VERTEX_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+      EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-transformer}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
-      TOP_K: ${TOP_K:-10}
+      TOP_K: ${TOP_K:-25}
       MAX_REFERENCE_HOPS: ${MAX_REFERENCE_HOPS:-2}
     ports:
       - "8000:8000"
+    volumes:
+      - ./data/synthea:/app/data/synthea:ro
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   postgres_data:
-

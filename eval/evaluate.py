@@ -112,7 +112,7 @@ async def evaluate_question(
     query = question["question"]
     embedding = embedder.embed_query(query)
     # The dataset deliberately uses an unresolved placeholder patient reference.
-    primary = await hybrid_search(pool, embedding, top_k=settings.top_k)
+    primary = await hybrid_search(pool, embedding, query_text=query, top_k=settings.top_k)
     supplementary = await resolve_references(pool, primary, max_hops=settings.max_reference_hops)
     resources = primary + supplementary
     context = build_context(primary, supplementary)
@@ -191,8 +191,17 @@ async def run_evaluation(
     embedder = Embedder(settings.embedding_model)
     llm_client = LLMClient(
         settings.llm_provider,
-        api_key=settings.anthropic_api_key,
+            api_key=(
+            settings.gemini_api_key
+            if settings.llm_provider == "gemini"
+            else (
+                settings.vertex_api_key
+                if settings.llm_provider == "vertex"
+                else settings.anthropic_api_key
+            )
+        ),
         ollama_url=settings.ollama_base_url,
+        gemini_model=settings.gemini_model,
     )
     try:
         results = []

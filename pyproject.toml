@@ -13,7 +13,6 @@ dependencies = [
     "asyncpg",
     "pgvector",
     "fhir.resources>=7.1",
-    "sentence-transformers>=3.0",
     "anthropic",
     "jinja2",
     "pydantic-settings",
@@ -25,6 +24,9 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "httpx",
+]
+semantic = [
+    "sentence-transformers>=3.0",
 ]
 
 [tool.setuptools.packages.find]

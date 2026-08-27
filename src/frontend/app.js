@@ -8,14 +8,30 @@ function fhirRagApp() {
     answer: "",
     citations: [],
     confidence: "",
-    examples: [
-      "What is the latest HbA1c?",
-      "What diabetes medications is this patient currently taking?",
-      "Does this patient have any documented diabetic complications?",
-    ],
+    examples: [],
 
     async init() {
       await this.loadPatients();
+      await this.loadSuggestions();
+      // Suggestions describe the selected record, so they follow the picker.
+      this.$watch("selectedPatient", () => this.loadSuggestions());
+    },
+
+    async loadSuggestions() {
+      const query = this.selectedPatient
+        ? `?patient_ref=${encodeURIComponent(this.selectedPatient)}`
+        : "";
+      try {
+        const response = await fetch(`/api/suggestions${query}`);
+        if (!response.ok) {
+          throw new Error("Suggestions are unavailable.");
+        }
+        const payload = await response.json();
+        this.examples = payload.suggestions || [];
+      } catch {
+        // Suggestions are a convenience; a failure here must not block asking.
+        this.examples = [];
+      }
     },
 
     async loadPatients() {

@@ -9,11 +9,15 @@ class Settings(BaseSettings):
     """Runtime settings for the FHIR RAG application."""
 
     database_url: str = "postgresql://fhir:fhir@localhost:5432/fhir_rag"
-    llm_provider: Literal["claude", "ollama"] = "claude"
+    llm_provider: Literal["claude", "gemini", "vertex", "ollama"] = "claude"
     anthropic_api_key: str | None = None
+    gemini_api_key: str | None = None
+    vertex_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
     ollama_base_url: str = "http://localhost:11434"
+    embedding_backend: Literal["hash", "transformer"] = "transformer"
     embedding_model: str = "all-MiniLM-L6-v2"
-    top_k: int = 10
+    top_k: int = 25
     max_reference_hops: int = 2
 
     model_config = SettingsConfigDict(
@@ -24,4 +28,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

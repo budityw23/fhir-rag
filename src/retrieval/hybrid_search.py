@@ -1,8 +1,19 @@
-"""Vector similarity search with optional structured FHIR filters."""
+"""Hybrid vector + full-text search with optional structured FHIR filters."""
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+
+# Reciprocal Rank Fusion constant. 60 is the value from the original RRF
+# paper and damps the influence of any single arm's top few results.
+RRF_K = 60
+# Candidates each arm contributes before fusion, as a multiple of top_k.
+ARM_OVERFETCH = 5
+# Relative weight of the lexical arm in the fusion. The OR-joined query matches
+# on any question term, so it ranks chunks that merely share a common word.
+# Half weight lets it rescue questions the vector arm misses (a query naming a
+# resource type outright) without letting it outvote semantic similarity.
+LEXICAL_WEIGHT = 0.5
 
 
 @dataclass
@@ -44,33 +55,94 @@ def result_from_row(row: Any, similarity: float | None = None) -> SearchResult:
 async def hybrid_search(
     pool,
     query_embedding: list[float],
+    query_text: str | None = None,
     patient_ref: str | None = None,
     resource_types: list[str] | None = None,
     date_start: datetime | None = None,
     date_end: datetime | None = None,
     top_k: int = 10,
 ) -> list[SearchResult]:
-    """Vector similarity search with optional structured filters."""
+    """Fuse vector and full-text ranking with Reciprocal Rank Fusion.
+
+    The vector arm alone misses questions whose wording shares no tokens with
+    the rendered resource ("immunization schedule" vs. the Immunization
+    resources themselves), so a Postgres full-text arm runs alongside it and
+    the two rankings are combined by RRF. When query_text is absent the
+    lexical arm contributes nothing and this degrades to pure vector search.
+    """
+    # Each arm is over-fetched so that a resource ranked highly by one arm can
+    # still surface after fusion even when the other arm ignores it entirely.
+    candidate_limit = max(top_k * ARM_OVERFETCH, top_k)
     query = """
-        SELECT resource_id, resource_type, patient_ref, resource_date,
-               codes, references, text_content,
-               1 - (embedding <=> $1) AS similarity
-        FROM fhir_chunks
-        WHERE ($2 IS NULL OR patient_ref = $2)
-          AND ($3 IS NULL OR resource_type = ANY($3))
-          AND ($4 IS NULL OR resource_date >= $4)
-          AND ($5 IS NULL OR resource_date <= $5)
-        ORDER BY embedding <=> $1
+        WITH filtered AS NOT MATERIALIZED (
+            SELECT resource_id, resource_type, patient_ref, resource_date,
+                   codes, "references", text_content, embedding, text_search
+            FROM fhir_chunks
+            WHERE ($2::text IS NULL OR patient_ref = $2::text)
+              AND ($3::text[] IS NULL OR resource_type = ANY($3::text[]))
+              AND ($4::timestamptz IS NULL OR resource_date >= $4::timestamptz)
+              AND ($5::timestamptz IS NULL OR resource_date <= $5::timestamptz)
+        ),
+        lexical_query AS (
+            -- websearch_to_tsquery joins terms with AND, which requires every
+            -- word of a question to appear in one short clinical chunk and so
+            -- matched nothing. Reuse its tokenising and escaping, then relax
+            -- the conjunction to OR so ts_rank_cd can rank by term overlap.
+            SELECT NULLIF(
+                       replace(websearch_to_tsquery('english', $8)::text, ' & ', ' | '),
+                       ''
+                   )::tsquery AS query
+        ),
+        vector_arm AS (
+            SELECT resource_id,
+                   ROW_NUMBER() OVER (ORDER BY embedding <=> $1) AS rank,
+                   1 - (embedding <=> $1) AS similarity
+            FROM filtered
+            ORDER BY embedding <=> $1
+            LIMIT $7
+        ),
+        lexical_arm AS (
+            SELECT resource_id,
+                   ROW_NUMBER() OVER (ORDER BY ts_rank_cd(text_search, q.query) DESC) AS rank
+            FROM filtered, lexical_query q
+            WHERE q.query IS NOT NULL
+              AND text_search @@ q.query
+            ORDER BY ts_rank_cd(text_search, q.query) DESC
+            LIMIT $7
+        ),
+        fused AS (
+            SELECT COALESCE(v.resource_id, l.resource_id) AS resource_id,
+                   COALESCE(1.0 / ($9 + v.rank), 0.0)
+                     + $10 * COALESCE(1.0 / ($9 + l.rank), 0.0) AS score,
+                   COALESCE(v.similarity, 0.0) AS similarity
+            FROM vector_arm v
+            FULL OUTER JOIN lexical_arm l ON v.resource_id = l.resource_id
+        )
+        SELECT f.resource_id, c.resource_type, c.patient_ref, c.resource_date,
+               c.codes, c."references", c.text_content, f.similarity
+        FROM fused f
+        JOIN filtered c ON c.resource_id = f.resource_id
+        ORDER BY f.score DESC
         LIMIT $6
     """
-    rows = await pool.fetch(
-        query,
-        query_embedding,
-        patient_ref,
-        resource_types,
-        date_start,
-        date_end,
-        top_k,
-    )
+    async with pool.acquire() as connection:
+        async with connection.transaction():
+            if patient_ref is not None:
+                # HNSW selects global nearest neighbors before applying the
+                # patient filter, which can incorrectly return no records.
+                # Patient-scoped searches are small enough for exact ranking.
+                await connection.execute("SET LOCAL enable_indexscan = off")
+            rows = await connection.fetch(
+                query,
+                query_embedding,
+                patient_ref,
+                resource_types,
+                date_start,
+                date_end,
+                top_k,
+                candidate_limit,
+                query_text,
+                RRF_K,
+                LEXICAL_WEIGHT,
+            )
     return [result_from_row(row) for row in rows]
-
