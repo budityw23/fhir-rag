@@ -96,13 +96,9 @@ Treat `finishReason` as a value to check — HTTP 200 is not a complete answer.
 
 ## Commit conventions
 
-Do not add `Co-Authored-By` trailers, or any other attribution trailer, to
-commit messages in this repository. Commits are authored under the repository
-owner's name alone. This applies to every commit, including ones created by
-tooling.
-
-Otherwise: conventional-commit subjects (`fix:`, `feat:`, `docs:`), and a body
-that explains why the change was needed rather than restating the diff.
+Never add `Co-Authored-By` or any other attribution trailer. Conventional-commit
+subjects, with a body explaining why rather than restating the diff. Full rules
+live in `~/.claude/CLAUDE.md` alongside the general behavioral guidelines.
 
 ## Debugging posture
 
