@@ -583,6 +583,168 @@ carried it. Assert that each arm returns rows, not just that the fused result
 looks better. And check the query plan before assuming an index is used: a CTE
 referenced more than once is an optimisation fence by default.
 
+## 16. The Patient Picker Was Unordered and Unreadable
+
+**Symptom**
+
+The patient dropdown listed 78 records in no useful order, and each option read
+`Kimberly627 Hahn503 — Patient/07e85900-...`. Finding a known patient meant
+scanning the whole list, and the digits made the names hard to read at a glance.
+
+**Cause**
+
+Two separate things, neither of them a retrieval defect:
+
+- `/api/patients` returned rows in the order the query produced them. The
+  `ORDER BY patient_ref` in that query is not a display order — it is required
+  by `SELECT DISTINCT ON (patient_ref)`, so it sorts by opaque UUID.
+- Synthea suffixes every name part with digits (`Bob965 Demarcus108
+  Hammes673`) to keep synthetic identities distinct. The renderer stored that
+  string verbatim and `_patient_summary` parsed it back out unchanged.
+
+The display name is parsed out of `text_content` in `_patient_summary`, not
+selected as a column, so the sort could not move into SQL without also changing
+what the query selects.
+
+**Fix**
+
+Both in `src/api/routes.py`, display-side only:
+
+- `_strip_synthea_digits` removes digits that follow a letter
+  (`(?<=[^\W\d_])\d+\b`). The lookbehind is what keeps a purely numeric token
+  intact, and it leaves the `patient_ref` fallback alone when no name parses.
+- `list_patients` sorts the built summaries by `name.casefold()` before
+  returning them.
+
+Nothing upstream changes: `patient_ref` is still the filter key for
+`/api/query`, and the stored `text_content` keeps the original Synthea names,
+so citations and retrieval are untouched.
+
+**Verification**
+
+```bash
+curl -s localhost:8000/api/patients | \
+  python3 -c "import sys,json;[print(p['name']) for p in json.load(sys.stdin)[:6]]"
+# Albert Sean Nienow
+# Alejandrina Susanne Cormier
+# Alysa Rath
+# ...
+```
+
+**Lesson**
+
+An `ORDER BY` that exists to satisfy `DISTINCT ON` is a correctness constraint,
+not a presentation choice — reading it as the display order is how a list ends
+up sorted by UUID. And when the displayed value is derived in Python rather
+than selected as a column, the sort belongs where the value is built.
+
+**Environment note**
+
+`docker compose build` failed here with:
+
+```text
+error getting credentials - err: fork/exec /usr/bin/docker-credential-desktop.exe: exec format error
+```
+
+This is the WSL Docker Desktop credential helper, not a project problem. Build
+against a throwaway config that declares no helper:
+
+```bash
+mkdir -p /tmp/dockercfg && echo '{}' > /tmp/dockercfg/config.json
+DOCKER_CONFIG=/tmp/dockercfg docker compose build app
+DOCKER_CONFIG=/tmp/dockercfg docker compose up -d --force-recreate app
+```
+
+## 17. The Evaluation Set Measured Nothing It Claimed To
+
+**Symptom**
+
+`eval/questions.json` held 50 questions and the harness produced a full report
+with recall, citation accuracy and keyword coverage. Every number was
+meaningless, and nothing in the output said so.
+
+**Cause**
+
+Four independent defects, all silent.
+
+*The questions were never scoped to a patient.* Every entry carried the literal
+placeholder `"Patient/{id}"`, and `evaluate.py` never resolved it — it called
+`hybrid_search` with no `patient_ref` at all, with a comment describing the
+placeholder as deliberate. "What is this patient's most recent HbA1c?" was
+therefore answered from all 78 patients in the corpus at once. A question about
+one record cannot be scored against an answer drawn from every record.
+
+*The cohort did not match the corpus.* The set was written for Type 1 and
+Type 2 diabetes, but the generated corpus is 78 general Synthea patients, of
+whom only 11 have diabetes. Most questions had no grounding in any specific
+record.
+
+*Date expectations could never match.* `_matches_expectation` used
+`\b\d{4}-\d{2}-\d{2}\b`, but rendered resources carry full ISO timestamps:
+
+```text
+"Onset 2025-04-06T12:39:43+07:00"   ->  \b after the day fails against the "T"
+```
+
+Every `date`, `duration or date`, `chronological events with dates` and
+`multiple date-value pairs` expectation scored zero. The `temporal` category
+read 0.20 while the answers were correct.
+
+*Negative questions were scored on signals that punish correct behaviour.*
+They name no `expected_resource_types`, so `_retrieval_recall` returned 0.0
+whenever anything was retrieved — which patient-scoped retrieval always does,
+since the patient has other resources. And a correct "insufficient data" answer
+contains no citations, so `_citation_accuracy` returned 0.0. Answering a
+negative question correctly lowered two of the three headline metrics.
+
+**Fix**
+
+52 questions, each naming a real `patient_ref` and each expectation grounded in
+that patient's records, across two cohorts: three adults with type 2 diabetes
+and its complications, and one child with the atopic march and no glucose data
+at all. The pediatric patient supplies the negative controls.
+
+`hybrid_search` is now called with the question's `patient_ref`, and
+`load_questions` rejects a placeholder rather than scoring every question as a
+miss. The date pattern drops the trailing boundary; `duration or date` is
+checked before the generic `endswith("date")` branch that was swallowing it;
+recall is not applicable for negative questions and they are excluded from
+citation accuracy. Results carry `id`, `category` and `cohort`, with
+per-category and per-cohort breakdowns.
+
+`Dockerfile` now copies `eval/`, which the documented
+`docker compose exec app python -m eval.evaluate` had always required.
+
+**Verification**
+
+Fixing the date pattern alone moved keyword coverage from 0.849 to 0.952 and
+the `temporal` category from 0.20 to 1.00 — with no change to the pipeline
+being measured.
+
+| Metric | Baseline |
+| --- | --- |
+| Retrieval recall | 0.971 |
+| Citation accuracy | 0.957 |
+| Answer-keyword coverage | 0.952 |
+| Grounded / partial / ungrounded | 45 / 0 / 7 |
+| Latency mean / max | 14.7 s / 27.3 s |
+
+All seven ungrounded results are the five negatives plus two answers that wrote
+resource ids without brackets. Latency is entirely generation; patient-scoped
+retrieval runs in 5-24 ms. The weakest categories are now real signal:
+`medications` at 0.79 keyword coverage, because a simvastatin prescription was
+not retrieved, and `preventive` at 0.67.
+
+**Lesson**
+
+A metric that cannot fail is worse than no metric. Three of these defects made
+the harness report a number that was structurally incapable of reflecting the
+system: a placeholder that matched nothing, a regex that matched nothing, and a
+scoring rule that penalised the correct answer. Before trusting an evaluation,
+check that at least one question fails for the reason you expect and at least
+one passes — and confirm the fixture data actually exists in the corpus being
+measured.
+
 ## Repeatable Checks
 
 Use these commands after loading data:
@@ -609,6 +771,13 @@ docker compose exec -T db psql -U fhir -d fhir_rag -c \
 
 Rebuild the image **after** the last source edit. `docker compose up -d` reuses
 the existing image and will silently run stale code otherwise.
+
+Run the evaluation harness inside the container, and read the per-category
+breakdown rather than only the headline averages:
+
+```bash
+docker compose exec app python -m eval.evaluate
+```
 
 Do not re-run `docker compose up` after data-only ingestion. Restart or rebuild
 the app only after changing application code, Compose configuration, or its
