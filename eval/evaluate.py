@@ -34,6 +34,9 @@ PROMPT_ENVIRONMENT = Environment(
 
 @dataclass
 class EvalResult:
+    id: str
+    category: str
+    cohort: str
     question: str
     retrieval_recall: float
     citation_accuracy: float
@@ -45,17 +48,32 @@ class EvalResult:
 def load_questions(path: Path = QUESTIONS_PATH) -> list[dict[str, Any]]:
     """Load and validate the evaluation question list."""
     questions = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(questions, list) or len(questions) != 50:
-        raise ValueError("Evaluation dataset must contain exactly 50 questions")
+    if not isinstance(questions, list) or not questions:
+        raise ValueError("Evaluation dataset must be a non-empty list of questions")
     required = {
         "id", "question", "patient_ref", "expected_resource_types", "expected_codes",
-        "expected_answer_contains", "category", "diabetes_type",
+        "expected_answer_contains", "category", "cohort",
     }
+    seen: set[str] = set()
     for question in questions:
         missing = required - question.keys()
         if missing:
             raise ValueError(f"{question.get('id', 'unknown')} is missing {sorted(missing)}")
+        question_id = question["id"]
+        if question_id in seen:
+            raise ValueError(f"Duplicate question id {question_id}")
+        seen.add(question_id)
+        # Retrieval is patient-scoped, so an unresolved placeholder would
+        # silently match nothing and score every question as a miss.
+        if not question["patient_ref"].startswith("Patient/") or "{" in question["patient_ref"]:
+            raise ValueError(f"{question_id} needs a real patient_ref, got {question['patient_ref']!r}")
     return questions
+
+
+# Rendered resources carry full ISO timestamps ("2025-04-06T12:39:43+07:00"),
+# so a trailing \b after the day fails against the "T" and every date-shaped
+# expectation scored zero.
+_DATE = r"\b\d{4}-\d{2}-\d{2}"
 
 
 def _matches_expectation(answer: str, expectation: str) -> bool:
@@ -64,16 +82,18 @@ def _matches_expectation(answer: str, expectation: str) -> bool:
     alternatives = [part.strip() for part in expectation.split("|") if part.strip()]
     if any(part.lower() in answer_lower for part in alternatives):
         return True
+    if expectation == "duration or date":
+        # Checked before the generic "ends with date" branch, which would
+        # otherwise swallow this expectation and reject a plain duration.
+        return bool(re.search(_DATE + r"|\b\d+\s+(?:year|month|day)s?\b", answer_lower))
     if expectation == "date" or expectation.endswith("date"):
-        return bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b", answer))
+        return bool(re.search(_DATE, answer))
     if expectation in {"numeric value", "percentage value", "dosage value", "numeric count"}:
         return bool(re.search(r"\b\d+(?:\.\d+)?\s*%?|\b\d+\b", answer))
     if expectation in {"medication names", "medication name", "description", "clinical correlation"}:
         return expectation.split()[0].lower() in answer_lower
     if expectation in {"multiple date-value pairs", "chronological events with dates"}:
-        return len(re.findall(r"\b\d{4}-\d{2}-\d{2}\b", answer)) >= 2
-    if expectation == "duration or date":
-        return bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b|\b\d+\s+(?:year|month|day)s?\b", answer_lower))
+        return len(re.findall(_DATE, answer)) >= 2
     if expectation == "type if applicable":
         return any(word in answer_lower for word in ("glargine", "lispro", "type", "basal", "bolus"))
     if expectation == "listing of screenings":
@@ -84,7 +104,11 @@ def _matches_expectation(answer: str, expectation: str) -> bool:
 def _retrieval_recall(question: dict[str, Any], resources: list[Any]) -> float:
     expected = set(question["expected_resource_types"])
     if not expected:
-        return 1.0 if not resources else 0.0
+        # Negative questions name no expected types: the record genuinely has
+        # no such data. Patient-scoped retrieval still returns that patient's
+        # other resources, so recall is not a meaningful signal here and these
+        # questions are scored on answer_contains instead.
+        return 1.0
     found = {resource.resource_type for resource in resources}
     return len(expected & found) / len(expected)
 
@@ -111,8 +135,15 @@ async def evaluate_question(
     started = time.perf_counter()
     query = question["question"]
     embedding = embedder.embed_query(query)
-    # The dataset deliberately uses an unresolved placeholder patient reference.
-    primary = await hybrid_search(pool, embedding, query_text=query, top_k=settings.top_k)
+    # Scope retrieval to the question's patient. Without this a question about
+    # one record is answered from all 78 patients in the corpus.
+    primary = await hybrid_search(
+        pool,
+        embedding,
+        query_text=query,
+        patient_ref=question["patient_ref"],
+        top_k=settings.top_k,
+    )
     supplementary = await resolve_references(pool, primary, max_hops=settings.max_reference_hops)
     resources = primary + supplementary
     context = build_context(primary, supplementary)
@@ -127,6 +158,9 @@ async def evaluate_question(
         _matches_expectation(grounded.answer, expectation) for expectation in expected
     ) / len(expected) if expected else 1.0
     return EvalResult(
+        id=question["id"],
+        category=question["category"],
+        cohort=question["cohort"],
         question=query,
         retrieval_recall=_retrieval_recall(question, primary),
         citation_accuracy=_citation_accuracy(llm_response.content, resources),
@@ -139,10 +173,15 @@ async def evaluate_question(
 def _aggregate(results: list[EvalResult]) -> dict[str, Any]:
     if not results:
         return {"question_count": 0}
+    # A correct negative answer cites nothing, so scoring it 0.0 would punish
+    # the behaviour the negative questions exist to confirm.
+    citable = [r for r in results if r.category != "negative"]
     return {
         "question_count": len(results),
         "retrieval_recall": sum(r.retrieval_recall for r in results) / len(results),
-        "citation_accuracy": sum(r.citation_accuracy for r in results) / len(results),
+        "citation_accuracy": (
+            sum(r.citation_accuracy for r in citable) / len(citable) if citable else None
+        ),
         "answer_contains": sum(r.answer_contains for r in results) / len(results),
         "confidence_counts": {
             level: sum(result.confidence == level for result in results)
@@ -152,6 +191,24 @@ def _aggregate(results: list[EvalResult]) -> dict[str, Any]:
             "mean": round(sum(r.latency_ms for r in results) / len(results)),
             "max": max(r.latency_ms for r in results),
         },
+        "by_category": _breakdown(results, lambda r: r.category),
+        "by_cohort": _breakdown(results, lambda r: r.cohort),
+    }
+
+
+def _breakdown(results: list[EvalResult], key) -> dict[str, Any]:
+    """Group scores by a result attribute so a weak area is visible at a glance."""
+    groups: dict[str, list[EvalResult]] = {}
+    for result in results:
+        groups.setdefault(key(result), []).append(result)
+    return {
+        name: {
+            "n": len(items),
+            "retrieval_recall": round(sum(r.retrieval_recall for r in items) / len(items), 3),
+            "answer_contains": round(sum(r.answer_contains for r in items) / len(items), 3),
+            "grounded": sum(r.confidence == "grounded" for r in items),
+        }
+        for name, items in sorted(groups.items())
     }
 
 
@@ -170,12 +227,12 @@ def write_results(results: list[EvalResult], output_path: Path | None = None) ->
 
 def print_results(results: list[EvalResult]) -> None:
     """Print a compact per-question table and aggregate summary."""
-    headers = ("Question", "Recall", "Citations", "Contains", "Confidence", "Latency")
+    headers = ("ID      ", "Recall", "Citations", "Contains", "Confidence", "Latency")
     print(" | ".join(headers))
     print("-" * 92)
     for index, result in enumerate(results, 1):
         print(
-            f"{index:02d} | {result.retrieval_recall:.2f} | {result.citation_accuracy:.2f} | "
+            f"{result.id:<8} | {result.retrieval_recall:.2f} | {result.citation_accuracy:.2f} | "
             f"{result.answer_contains:.2f} | {result.confidence:<18} | {result.latency_ms} ms"
         )
     print(json.dumps(_aggregate(results), indent=2))
@@ -188,7 +245,7 @@ async def run_evaluation(
     """Run all evaluation questions using the configured database and LLM provider."""
     questions = questions or load_questions()
     pool = await init_pool()
-    embedder = Embedder(settings.embedding_model)
+    embedder = Embedder(settings.embedding_model, settings.embedding_backend)
     llm_client = LLMClient(
         settings.llm_provider,
             api_key=(

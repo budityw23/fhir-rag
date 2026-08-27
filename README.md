@@ -273,15 +273,44 @@ Negative controls behave the same way: HbA1c, spirometry, and hospitalization qu
 
 ## Evaluation
 
-The 50-question diabetes evaluation set is in `eval/questions.json` and covers diagnosis, HbA1c monitoring, medications, complications, vitals/labs, care plans, cross-resource reasoning, temporal trends, preventive screening, and negative/boundary questions.
+`eval/questions.json` holds 52 questions covering diagnosis, HbA1c monitoring, medications, complications, vitals/labs, care plans, cross-resource reasoning, temporal trends, preventive screening, and negative/boundary cases.
+
+Every question names a **real `patient_ref` from the generated corpus** and its expectations are grounded in that patient's actual records, across two cohorts:
+
+| Cohort | Patients used | Exercises |
+| --- | --- | --- |
+| `diabetes` | three adults with type 2 diabetes, retinopathy, nephropathy, cardiac disease and amputation history | HbA1c trends, insulin and metformin, complication chains, retinal screening |
+| `pediatric_atopic` | one child with the atopic march and no glucose data at all | allergy reactions, asthma regimen, growth percentiles, immunizations |
+
+The cohorts are deliberately mixed. A question set drawn from one disease cannot tell you whether retrieval generalises, and the pediatric patient supplies honest negative controls — asking for their HbA1c must return "insufficient data", not an invented value.
+
+Retrieval is **patient-scoped**: the harness passes each question's `patient_ref` to `hybrid_search`. Without that, a question about one record is answered from all 78 patients in the corpus and the scores are meaningless.
 
 Run it against a populated stack with:
 
 ```bash
-python -m eval.evaluate
+docker compose exec app python -m eval.evaluate
 ```
 
-The harness prints per-question and aggregate metrics for retrieval recall, citation accuracy, answer-keyword coverage, confidence, and latency. JSON output is written to `eval/results/evaluation_results.json`. Baseline results are intentionally left as a placeholder until a representative Synthea dataset and configured LLM are available.
+The harness prints per-question and aggregate metrics for retrieval recall, citation accuracy, answer-keyword coverage, confidence, and latency, broken down by category and cohort so a weak area is visible without reading every row. JSON output goes to `eval/results/evaluation_results.json`.
+
+### Baseline
+
+Measured on the 78-patient Synthea corpus with `EMBEDDING_BACKEND=transformer`, `TOP_K=25`, and `gemini-2.5-flash`:
+
+| Metric | Score |
+| --- | --- |
+| Retrieval recall | 0.971 |
+| Citation accuracy | 0.957 |
+| Answer-keyword coverage | 0.952 |
+| Grounded / partially / ungrounded | 45 / 0 / 7 |
+| Latency (mean / max) | 14.7 s / 27.3 s |
+
+All seven ungrounded results are the five negative questions plus two answers whose resource ids were written without `[brackets]`; none is a retrieval failure. Latency is generation-bound — patient-scoped retrieval itself runs in 5-24 ms.
+
+The weakest categories are the useful ones to watch: `medications` (0.79 keyword coverage — a simvastatin prescription was not retrieved) and `preventive` (0.67). `cross_resource` recall of 0.83 reflects questions that expect two resource types where only one was retrieved.
+
+Two scoring rules are worth knowing when reading a report. Negative questions list no `expected_resource_types`; patient-scoped retrieval still returns that patient's other resources, so recall is not meaningful for them and they are scored on answer content instead. They are also excluded from citation accuracy, because a correct "insufficient data" answer cites nothing and would otherwise be punished for being right.
 
 ## Limitations and V2 Roadmap
 

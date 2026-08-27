@@ -1,52 +1,914 @@
 [
-  {"id":"DM-001","question":"What type of diabetes does this patient have?","patient_ref":"Patient/{id}","category":"diagnosis","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"44054006","display":"Diabetes mellitus type 2"},{"system":"SNOMED","code":"46635009","display":"Diabetes mellitus type 1"}],"expected_answer_contains":["diabetes","type 1|type 2"],"diabetes_type":"both"},
-  {"id":"DM-002","question":"When was this patient first diagnosed with diabetes?","patient_ref":"Patient/{id}","category":"diagnosis","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"44054006","display":"Diabetes mellitus type 2"},{"system":"SNOMED","code":"46635009","display":"Diabetes mellitus type 1"}],"expected_answer_contains":["diagnosed","onset","date"],"diabetes_type":"both"},
-  {"id":"DM-003","question":"What is the current clinical status of this patient's diabetes?","patient_ref":"Patient/{id}","category":"diagnosis","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"44054006","display":"Diabetes mellitus type 2"},{"system":"SNOMED","code":"46635009","display":"Diabetes mellitus type 1"}],"expected_answer_contains":["active|resolved|inactive"],"diabetes_type":"both"},
-  {"id":"DM-004","question":"Does this patient have any prediabetes or impaired glucose tolerance history?","patient_ref":"Patient/{id}","category":"diagnosis","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"15777000","display":"Prediabetes"}],"expected_answer_contains":["prediabetes|impaired glucose tolerance|insufficient data"],"diabetes_type":"type2"},
-  {"id":"DM-005","question":"What conditions does this patient have related to metabolic syndrome?","patient_ref":"Patient/{id}","category":"diagnosis","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"44054006","display":"Diabetes mellitus type 2"},{"system":"SNOMED","code":"38341003","display":"Hypertension"},{"system":"SNOMED","code":"55822004","display":"Hyperlipidemia"}],"expected_answer_contains":["diabetes","hypertension|blood pressure","cholesterol|lipid"],"diabetes_type":"type2"},
-  {"id":"DM-006","question":"Is this patient's diabetes classified as insulin-dependent?","patient_ref":"Patient/{id}","category":"diagnosis","expected_resource_types":["Condition","MedicationRequest"],"expected_codes":[{"system":"SNOMED","code":"46635009","display":"Diabetes mellitus type 1"},{"system":"RxNorm","code":"311040","display":"Insulin Glargine"}],"expected_answer_contains":["type 1|insulin-dependent|insulin"],"diabetes_type":"type1"},
-  {"id":"DM-007","question":"What is this patient's most recent HbA1c result?","patient_ref":"Patient/{id}","category":"hba1c_monitoring","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["HbA1c|A1c","percentage value"],"diabetes_type":"both"},
-  {"id":"DM-008","question":"Is this patient's diabetes well-controlled based on their HbA1c?","patient_ref":"Patient/{id}","category":"hba1c_monitoring","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["HbA1c|A1c","controlled|uncontrolled","percentage value"],"diabetes_type":"both"},
-  {"id":"DM-009","question":"How many HbA1c tests has this patient had in the past two years?","patient_ref":"Patient/{id}","category":"hba1c_monitoring","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["numeric count","HbA1c"],"diabetes_type":"both"},
-  {"id":"DM-010","question":"What was this patient's highest recorded HbA1c value?","patient_ref":"Patient/{id}","category":"hba1c_monitoring","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["highest|maximum","HbA1c","percentage value"],"diabetes_type":"both"},
-  {"id":"DM-011","question":"Has this patient's HbA1c been above 9% at any point?","patient_ref":"Patient/{id}","category":"hba1c_monitoring","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["HbA1c","9%|above|below"],"diabetes_type":"both"},
-  {"id":"DM-012","question":"When was this patient's last HbA1c test performed?","patient_ref":"Patient/{id}","category":"hba1c_monitoring","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["HbA1c","date"],"diabetes_type":"both"},
-  {"id":"DM-013","question":"What diabetes medications is this patient currently taking?","patient_ref":"Patient/{id}","category":"medications","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Metformin 500 MG"},{"system":"RxNorm","code":"311040","display":"Insulin Glargine"}],"expected_answer_contains":["Metformin|insulin|medication","active"],"diabetes_type":"both"},
-  {"id":"DM-014","question":"What is the current dosage of Metformin prescribed to this patient?","patient_ref":"Patient/{id}","category":"medications","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Metformin 500mg"},{"system":"RxNorm","code":"861004","display":"Metformin 1000mg"}],"expected_answer_contains":["Metformin","mg","dosage value"],"diabetes_type":"type2"},
-  {"id":"DM-015","question":"Has this patient's diabetes medication been changed in the past year?","patient_ref":"Patient/{id}","category":"medications","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Diabetes medication"}],"expected_answer_contains":["medication","changed|started|stopped|no changes"],"diabetes_type":"both"},
-  {"id":"DM-016","question":"Is this patient on insulin therapy? If so, what type?","patient_ref":"Patient/{id}","category":"medications","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"311040","display":"Insulin Glargine"},{"system":"RxNorm","code":"311041","display":"Insulin Lispro"}],"expected_answer_contains":["insulin|not on insulin","type if applicable"],"diabetes_type":"both"},
-  {"id":"DM-017","question":"What non-insulin diabetes medications has this patient been prescribed?","patient_ref":"Patient/{id}","category":"medications","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Metformin"},{"system":"RxNorm","code":"897122","display":"Glipizide"},{"system":"RxNorm","code":"1598392","display":"Canagliflozin"}],"expected_answer_contains":["Metformin|other oral diabetes medications"],"diabetes_type":"type2"},
-  {"id":"DM-018","question":"List all active prescriptions for this patient related to diabetes management.","patient_ref":"Patient/{id}","category":"medications","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Diabetes-related medication"}],"expected_answer_contains":["medication names","active"],"diabetes_type":"both"},
-  {"id":"DM-019","question":"When was this patient first started on diabetes medication?","patient_ref":"Patient/{id}","category":"medications","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Diabetes medication"}],"expected_answer_contains":["date","medication name"],"diabetes_type":"both"},
-  {"id":"DM-020","question":"Does this patient have any documented diabetic complications?","patient_ref":"Patient/{id}","category":"complications","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"422034002","display":"Diabetic retinopathy"},{"system":"SNOMED","code":"230572002","display":"Diabetic neuropathy"},{"system":"SNOMED","code":"127013003","display":"Diabetic nephropathy"}],"expected_answer_contains":["retinopathy|neuropathy|nephropathy|no complications"],"diabetes_type":"both"},
-  {"id":"DM-021","question":"Has this patient been diagnosed with diabetic retinopathy?","patient_ref":"Patient/{id}","category":"complications","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"422034002","display":"Diabetic retinopathy"}],"expected_answer_contains":["retinopathy","diagnosed|no|insufficient data"],"diabetes_type":"both"},
-  {"id":"DM-022","question":"Does this patient show signs of diabetic kidney disease?","patient_ref":"Patient/{id}","category":"complications","expected_resource_types":["Condition","Observation"],"expected_codes":[{"system":"SNOMED","code":"127013003","display":"Diabetic nephropathy"},{"system":"LOINC","code":"14959-1","display":"Microalbumin/creatinine ratio"}],"expected_answer_contains":["nephropathy|kidney|microalbumin|no evidence"],"diabetes_type":"both"},
-  {"id":"DM-023","question":"Has this patient had any episodes of diabetic ketoacidosis?","patient_ref":"Patient/{id}","category":"complications","expected_resource_types":["Condition","Encounter"],"expected_codes":[{"system":"SNOMED","code":"420422005","display":"Diabetic ketoacidosis"}],"expected_answer_contains":["ketoacidosis|DKA|no episodes"],"diabetes_type":"type1"},
-  {"id":"DM-024","question":"What cardiovascular conditions does this patient have in the context of their diabetes?","patient_ref":"Patient/{id}","category":"complications","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"53741008","display":"Coronary heart disease"},{"system":"SNOMED","code":"38341003","display":"Hypertension"}],"expected_answer_contains":["cardiovascular|heart|hypertension|coronary"],"diabetes_type":"both"},
-  {"id":"DM-025","question":"What are this patient's most recent fasting blood glucose levels?","patient_ref":"Patient/{id}","category":"vitals_labs","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"1558-6","display":"Fasting glucose"}],"expected_answer_contains":["glucose","mg/dL|value","date"],"diabetes_type":"both"},
-  {"id":"DM-026","question":"What is this patient's current BMI?","patient_ref":"Patient/{id}","category":"vitals_labs","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"39156-5","display":"Body mass index"}],"expected_answer_contains":["BMI","numeric value"],"diabetes_type":"both"},
-  {"id":"DM-027","question":"What are this patient's recent lipid panel results?","patient_ref":"Patient/{id}","category":"vitals_labs","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"2093-3","display":"Total cholesterol"},{"system":"LOINC","code":"2085-9","display":"HDL"},{"system":"LOINC","code":"2089-1","display":"LDL"},{"system":"LOINC","code":"2571-8","display":"Triglycerides"}],"expected_answer_contains":["cholesterol|LDL|HDL|triglycerides"],"diabetes_type":"both"},
-  {"id":"DM-028","question":"What is this patient's latest blood pressure reading?","patient_ref":"Patient/{id}","category":"vitals_labs","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"85354-9","display":"Blood pressure panel"}],"expected_answer_contains":["blood pressure|systolic|diastolic","mmHg"],"diabetes_type":"both"},
-  {"id":"DM-029","question":"What is this patient's most recent serum creatinine and eGFR?","patient_ref":"Patient/{id}","category":"vitals_labs","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"2160-0","display":"Creatinine"},{"system":"LOINC","code":"33914-3","display":"eGFR"}],"expected_answer_contains":["creatinine|eGFR","numeric value"],"diabetes_type":"both"},
-  {"id":"DM-030","question":"What is the current diabetes care plan for this patient?","patient_ref":"Patient/{id}","category":"care_plan","expected_resource_types":["CarePlan"],"expected_codes":[{"system":"SNOMED","code":"698360004","display":"Diabetes self-management plan"}],"expected_answer_contains":["care plan|management","diabetes"],"diabetes_type":"both"},
-  {"id":"DM-031","question":"What self-management goals have been set for this patient's diabetes?","patient_ref":"Patient/{id}","category":"care_plan","expected_resource_types":["CarePlan"],"expected_codes":[{"system":"SNOMED","code":"698360004","display":"Diabetes self-management plan"}],"expected_answer_contains":["goal|target","diabetes|glucose|HbA1c"],"diabetes_type":"both"},
-  {"id":"DM-032","question":"What activities or interventions are included in this patient's diabetes care plan?","patient_ref":"Patient/{id}","category":"care_plan","expected_resource_types":["CarePlan"],"expected_codes":[{"system":"SNOMED","code":"698360004","display":"Diabetes self-management plan"},{"system":"SNOMED","code":"386463000","display":"Prescribing"},{"system":"SNOMED","code":"413473000","display":"Counseling"}],"expected_answer_contains":["activity|intervention","diet|exercise|monitoring|medication"],"diabetes_type":"both"},
-  {"id":"DM-033","question":"Is this patient enrolled in any diabetes education programs?","patient_ref":"Patient/{id}","category":"care_plan","expected_resource_types":["CarePlan","Procedure"],"expected_codes":[{"system":"SNOMED","code":"6143009","display":"Diabetic education"}],"expected_answer_contains":["education|program|insufficient data"],"diabetes_type":"both"},
-  {"id":"DM-034","question":"How has this patient's HbA1c changed since starting Metformin?","patient_ref":"Patient/{id}","category":"cross_resource","expected_resource_types":["Observation","MedicationRequest"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"},{"system":"RxNorm","code":"860975","display":"Metformin"}],"expected_answer_contains":["HbA1c","Metformin","trend|values"],"diabetes_type":"type2"},
-  {"id":"DM-035","question":"What medications were prescribed during this patient's most recent diabetes-related encounter?","patient_ref":"Patient/{id}","category":"cross_resource","expected_resource_types":["Encounter","MedicationRequest"],"expected_codes":[{"system":"SNOMED","code":"185347001","display":"Encounter"},{"system":"RxNorm","code":"860975","display":"Diabetes medication"}],"expected_answer_contains":["medication names","encounter date"],"diabetes_type":"both"},
-  {"id":"DM-036","question":"Summarize this patient's complete diabetes history including diagnosis, medications, and lab results.","patient_ref":"Patient/{id}","category":"cross_resource","expected_resource_types":["Condition","MedicationRequest","Observation"],"expected_codes":[{"system":"SNOMED","code":"44054006","display":"Diabetes mellitus type 2"},{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"},{"system":"RxNorm","code":"860975","display":"Diabetes medication"}],"expected_answer_contains":["diabetes","diagnosed","medication name","HbA1c"],"diabetes_type":"both"},
-  {"id":"DM-037","question":"Are this patient's current medications appropriate given their latest lab results?","patient_ref":"Patient/{id}","category":"cross_resource","expected_resource_types":["MedicationRequest","Observation"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Diabetes medication"},{"system":"LOINC","code":"4548-4","display":"Laboratory result"}],"expected_answer_contains":["medication names","lab values","clinical correlation"],"diabetes_type":"both"},
-  {"id":"DM-038","question":"What procedures has this patient undergone related to their diabetes management?","patient_ref":"Patient/{id}","category":"cross_resource","expected_resource_types":["Procedure","Condition"],"expected_codes":[{"system":"SNOMED","code":"36228007","display":"Ophthalmic examination"}],"expected_answer_contains":["procedure|exam","description"],"diabetes_type":"both"},
-  {"id":"DM-039","question":"What is the relationship between this patient's BMI trend and their diabetes control?","patient_ref":"Patient/{id}","category":"cross_resource","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"39156-5","display":"Body mass index"},{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["BMI","HbA1c|glucose","trend|correlation"],"diabetes_type":"type2"},
-  {"id":"DM-040","question":"Show this patient's HbA1c trend over the past two years.","patient_ref":"Patient/{id}","category":"temporal","expected_resource_types":["Observation"],"expected_codes":[{"system":"LOINC","code":"4548-4","display":"Hemoglobin A1c"}],"expected_answer_contains":["HbA1c","multiple date-value pairs","trend"],"diabetes_type":"both"},
-  {"id":"DM-041","question":"What changes in diabetes medication have occurred over the past year?","patient_ref":"Patient/{id}","category":"temporal","expected_resource_types":["MedicationRequest"],"expected_codes":[{"system":"RxNorm","code":"860975","display":"Diabetes medication"}],"expected_answer_contains":["medication names","dates","started|stopped|changed|no changes"],"diabetes_type":"both"},
-  {"id":"DM-042","question":"When did this patient's diabetes complications first appear?","patient_ref":"Patient/{id}","category":"temporal","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"422034002","display":"Diabetic complication"}],"expected_answer_contains":["onset|diagnosed","complication name","date"],"diabetes_type":"both"},
-  {"id":"DM-043","question":"How long has this patient been living with diabetes?","patient_ref":"Patient/{id}","category":"temporal","expected_resource_types":["Condition"],"expected_codes":[{"system":"SNOMED","code":"44054006","display":"Diabetes mellitus type 2"},{"system":"SNOMED","code":"46635009","display":"Diabetes mellitus type 1"}],"expected_answer_contains":["diagnosed","duration or date","diabetes"],"diabetes_type":"both"},
-  {"id":"DM-044","question":"Timeline of all diabetes-related events for this patient in the last 12 months.","patient_ref":"Patient/{id}","category":"temporal","expected_resource_types":["Condition","Observation","MedicationRequest","Encounter","Procedure"],"expected_codes":[{"system":"SNOMED","code":"44054006","display":"Diabetes-related code"}],"expected_answer_contains":["chronological events with dates"],"diabetes_type":"both"},
-  {"id":"DM-045","question":"When was this patient's last diabetic eye examination?","patient_ref":"Patient/{id}","category":"preventive","expected_resource_types":["Procedure"],"expected_codes":[{"system":"SNOMED","code":"36228007","display":"Ophthalmic examination"},{"system":"SNOMED","code":"252779009","display":"Fundoscopy"}],"expected_answer_contains":["eye exam|retinal|ophthalmic","date"],"diabetes_type":"both"},
-  {"id":"DM-046","question":"Has this patient had a diabetic foot examination in the past year?","patient_ref":"Patient/{id}","category":"preventive","expected_resource_types":["Procedure"],"expected_codes":[{"system":"SNOMED","code":"401191002","display":"Diabetic foot examination"}],"expected_answer_contains":["foot exam|foot examination","date|no record"],"diabetes_type":"both"},
-  {"id":"DM-047","question":"Is this patient up to date on recommended diabetic screenings?","patient_ref":"Patient/{id}","category":"preventive","expected_resource_types":["Procedure","Observation"],"expected_codes":[{"system":"SNOMED","code":"36228007","display":"Screening"}],"expected_answer_contains":["screening|exam","up to date|overdue|listing of screenings"],"diabetes_type":"both"},
-  {"id":"DM-048","question":"What insulin pump model is this patient using?","patient_ref":"Patient/{id}","category":"negative","expected_resource_types":[],"expected_codes":[],"expected_answer_contains":["insufficient data|not available"],"diabetes_type":"both"},
-  {"id":"DM-049","question":"What did the patient eat for breakfast before their last glucose test?","patient_ref":"Patient/{id}","category":"negative","expected_resource_types":[],"expected_codes":[],"expected_answer_contains":["insufficient data|not available"],"diabetes_type":"both"},
-  {"id":"DM-050","question":"What is this patient's continuous glucose monitor average for the past week?","patient_ref":"Patient/{id}","category":"negative","expected_resource_types":[],"expected_codes":[],"expected_answer_contains":["insufficient data|not available"],"diabetes_type":"both"}
+  {
+    "id": "DX-001",
+    "question": "What type of diabetes does this patient have, and when was it diagnosed?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "diagnosis",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "44054006",
+        "display": "Diabetes mellitus type 2"
+      }
+    ],
+    "expected_answer_contains": [
+      "type 2",
+      "date"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "DX-002",
+    "question": "Does this patient have a record of prediabetes preceding their diabetes diagnosis?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "diagnosis",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "714628002",
+        "display": "Prediabetes"
+      }
+    ],
+    "expected_answer_contains": [
+      "prediabetes"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "DX-003",
+    "question": "What are this patient's active diabetes-related diagnoses?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "diagnosis",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "44054006",
+        "display": "Diabetes mellitus type 2"
+      }
+    ],
+    "expected_answer_contains": [
+      "diabetes"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "DX-004",
+    "question": "What chronic conditions does this patient have - asthma, eczema, allergic rhinitis - and when was each diagnosed?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "diagnosis",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "233678006",
+        "display": "Childhood asthma"
+      },
+      {
+        "system": "SNOMED",
+        "code": "24079001",
+        "display": "Atopic dermatitis"
+      }
+    ],
+    "expected_answer_contains": [
+      "asthma",
+      "dermatitis|eczema",
+      "rhinitis",
+      "date"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "DX-005",
+    "question": "When was this patient's childhood asthma diagnosed?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "diagnosis",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "233678006",
+        "display": "Childhood asthma"
+      }
+    ],
+    "expected_answer_contains": [
+      "asthma",
+      "date"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "DX-006",
+    "question": "What is this patient's diabetes diagnosis and its recorded onset?",
+    "patient_ref": "Patient/387a3e76-3af7-4dd8-4e59-7608353dd649",
+    "category": "diagnosis",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "44054006",
+        "display": "Diabetes mellitus type 2"
+      }
+    ],
+    "expected_answer_contains": [
+      "diabetes",
+      "date"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "A1C-001",
+    "question": "What is this patient's most recent HbA1c result and when was it measured?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "hba1c_monitoring",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [
+      {
+        "system": "LOINC",
+        "code": "4548-4",
+        "display": "Hemoglobin A1c"
+      }
+    ],
+    "expected_answer_contains": [
+      "a1c|hba1c",
+      "numeric value",
+      "date"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "A1C-002",
+    "question": "How has this patient's HbA1c changed over the recorded results?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "hba1c_monitoring",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [
+      {
+        "system": "LOINC",
+        "code": "4548-4",
+        "display": "Hemoglobin A1c"
+      }
+    ],
+    "expected_answer_contains": [
+      "a1c|hba1c",
+      "multiple date-value pairs"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "A1C-003",
+    "question": "What is the latest HbA1c for this patient?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "hba1c_monitoring",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [
+      {
+        "system": "LOINC",
+        "code": "4548-4",
+        "display": "Hemoglobin A1c"
+      }
+    ],
+    "expected_answer_contains": [
+      "a1c|hba1c",
+      "numeric value"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "A1C-004",
+    "question": "How frequently has this patient's HbA1c been monitored?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "hba1c_monitoring",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [
+      {
+        "system": "LOINC",
+        "code": "4548-4",
+        "display": "Hemoglobin A1c"
+      }
+    ],
+    "expected_answer_contains": [
+      "a1c|hba1c",
+      "date"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "A1C-005",
+    "question": "Report this patient's HbA1c history with dates.",
+    "patient_ref": "Patient/387a3e76-3af7-4dd8-4e59-7608353dd649",
+    "category": "hba1c_monitoring",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [
+      {
+        "system": "LOINC",
+        "code": "4548-4",
+        "display": "Hemoglobin A1c"
+      }
+    ],
+    "expected_answer_contains": [
+      "a1c|hba1c",
+      "multiple date-value pairs"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "A1C-006",
+    "question": "Is this patient's most recent HbA1c above or below their previous result?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "hba1c_monitoring",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [
+      {
+        "system": "LOINC",
+        "code": "4548-4",
+        "display": "Hemoglobin A1c"
+      }
+    ],
+    "expected_answer_contains": [
+      "a1c|hba1c",
+      "numeric value"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "MED-001",
+    "question": "What insulin products is this patient prescribed?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "medications",
+    "expected_resource_types": [
+      "MedicationRequest"
+    ],
+    "expected_codes": [
+      {
+        "system": "RxNorm",
+        "code": "106892",
+        "display": "Humulin 70/30"
+      }
+    ],
+    "expected_answer_contains": [
+      "insulin"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "MED-002",
+    "question": "Is this patient taking metformin, and at what strength?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "medications",
+    "expected_resource_types": [
+      "MedicationRequest"
+    ],
+    "expected_codes": [
+      {
+        "system": "RxNorm",
+        "code": "860975",
+        "display": "Metformin hydrochloride 500 MG ER"
+      }
+    ],
+    "expected_answer_contains": [
+      "metformin",
+      "numeric value"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "MED-003",
+    "question": "What lipid-lowering medication is this patient prescribed?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "medications",
+    "expected_resource_types": [
+      "MedicationRequest"
+    ],
+    "expected_codes": [
+      {
+        "system": "RxNorm",
+        "code": "312961",
+        "display": "Simvastatin 20 MG"
+      }
+    ],
+    "expected_answer_contains": [
+      "simvastatin|statin"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "MED-004",
+    "question": "What cardiovascular medications is this patient currently taking?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "medications",
+    "expected_resource_types": [
+      "MedicationRequest"
+    ],
+    "expected_codes": [
+      {
+        "system": "RxNorm",
+        "code": "243670",
+        "display": "aspirin 81 MG"
+      }
+    ],
+    "expected_answer_contains": [
+      "medication names"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "MED-005",
+    "question": "What is this patient's current asthma medication regimen?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "medications",
+    "expected_resource_types": [
+      "MedicationRequest"
+    ],
+    "expected_codes": [
+      {
+        "system": "RxNorm",
+        "code": "245314",
+        "display": "albuterol 5 MG/ML"
+      }
+    ],
+    "expected_answer_contains": [
+      "albuterol",
+      "fluticasone|flovent"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "MED-006",
+    "question": "Does this patient carry an epinephrine auto-injector, and why?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "medications",
+    "expected_resource_types": [
+      "MedicationRequest",
+      "AllergyIntolerance"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "epinephrine"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "MED-007",
+    "question": "What antiplatelet therapy is this patient on?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "medications",
+    "expected_resource_types": [
+      "MedicationRequest"
+    ],
+    "expected_codes": [
+      {
+        "system": "RxNorm",
+        "code": "309362",
+        "display": "Clopidogrel 75 MG"
+      }
+    ],
+    "expected_answer_contains": [
+      "clopidogrel"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "CMP-001",
+    "question": "Does this patient have diabetic retinopathy?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "complications",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "1551000119108",
+        "display": "Nonproliferative diabetic retinopathy"
+      }
+    ],
+    "expected_answer_contains": [
+      "retinopathy"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "CMP-002",
+    "question": "Does this patient have diabetic kidney disease or microalbuminuria?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "complications",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "127013003",
+        "display": "Disorder of kidney due to diabetes mellitus"
+      }
+    ],
+    "expected_answer_contains": [
+      "kidney|renal|microalbuminuria"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "CMP-003",
+    "question": "What diabetic complications are documented for this patient?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "complications",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "retinopathy|neuropathy|nephropathy"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "CMP-004",
+    "question": "Has this patient undergone any amputation, and what was the indication?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "complications",
+    "expected_resource_types": [
+      "Procedure",
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "180030006",
+        "display": "Amputation of the foot"
+      }
+    ],
+    "expected_answer_contains": [
+      "amputation",
+      "foot"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "CMP-005",
+    "question": "Does this patient have a documented history of myocardial infarction?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "complications",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "myocardial infarction|heart attack"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "VIT-001",
+    "question": "What was this patient's BMI percentile at the most recent well-child visit?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "vitals_labs",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "percentage value",
+      "date"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "VIT-002",
+    "question": "What are this patient's most recent blood pressure readings?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "vitals_labs",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "numeric value"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "VIT-003",
+    "question": "How did this patient's height and weight change between 2020 and 2026?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "vitals_labs",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "multiple date-value pairs"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "VIT-004",
+    "question": "What is this patient's most recent recorded body weight?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "vitals_labs",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "numeric value"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "VIT-005",
+    "question": "What were the eczema body-surface percentages recorded on 2020-11-08, and which area was worst affected?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "vitals_labs",
+    "expected_resource_types": [
+      "Observation"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "percentage value",
+      "head|neck"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "XRS-001",
+    "question": "Which allergies are documented for this patient, and what reaction did each cause?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "cross_resource",
+    "expected_resource_types": [
+      "AllergyIntolerance"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "735971005",
+        "display": "Fish"
+      }
+    ],
+    "expected_answer_contains": [
+      "fish",
+      "wheat",
+      "reaction|dyspnea|eruption"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "XRS-002",
+    "question": "Which allergies are documented for this patient?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "cross_resource",
+    "expected_resource_types": [
+      "AllergyIntolerance"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "288328004",
+        "display": "Bee venom"
+      }
+    ],
+    "expected_answer_contains": [
+      "bee venom|mold|dust mite"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "XRS-003",
+    "question": "Which medications were prescribed for this patient's asthma, and which condition do they address?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "cross_resource",
+    "expected_resource_types": [
+      "MedicationRequest",
+      "Condition"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "asthma",
+      "albuterol|fluticasone"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "XRS-004",
+    "question": "This patient's fish allergy is marked low criticality but lists dyspnea as a reaction. Is that consistent with the rest of the record?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "cross_resource",
+    "expected_resource_types": [
+      "AllergyIntolerance",
+      "MedicationRequest"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "fish",
+      "dyspnea"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "XRS-005",
+    "question": "What retinal procedures has this patient had, and what diabetic eye condition do they relate to?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "cross_resource",
+    "expected_resource_types": [
+      "Procedure",
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "722161008",
+        "display": "Diabetic retinal eye exam"
+      }
+    ],
+    "expected_answer_contains": [
+      "retina|retinal",
+      "diabet"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "XRS-006",
+    "question": "Relate this patient's insulin prescription to their diabetes diagnosis.",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "cross_resource",
+    "expected_resource_types": [
+      "MedicationRequest",
+      "Condition"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "insulin",
+      "diabetes"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "TMP-001",
+    "question": "Trace the atopic march for this patient: order eczema, food allergy, allergic rhinitis and asthma by onset date.",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "temporal",
+    "expected_resource_types": [
+      "Condition",
+      "AllergyIntolerance"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "chronological events with dates"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "TMP-002",
+    "question": "In what order did this patient's diabetes and its complications appear?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "temporal",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "chronological events with dates"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "TMP-003",
+    "question": "What happened across this patient's urgent-care visits in April 2025?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "temporal",
+    "expected_resource_types": [
+      "Encounter"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "date"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "TMP-004",
+    "question": "How long has this patient had type 2 diabetes?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "temporal",
+    "expected_resource_types": [
+      "Condition"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "44054006",
+        "display": "Diabetes mellitus type 2"
+      }
+    ],
+    "expected_answer_contains": [
+      "duration or date"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "TMP-005",
+    "question": "Was this patient's asthma regimen escalated during 2025, or re-prescribed unchanged?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "temporal",
+    "expected_resource_types": [
+      "MedicationRequest"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "albuterol|fluticasone",
+      "date"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "CPL-001",
+    "question": "What care plans are active for this patient?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "care_plan",
+    "expected_resource_types": [
+      "CarePlan"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "care plan|self management|therapy"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "CPL-002",
+    "question": "What does this patient's asthma self-management plan involve?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "care_plan",
+    "expected_resource_types": [
+      "CarePlan"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "asthma|inhal|nebulizer|breathing"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "CPL-003",
+    "question": "What care plan is recorded for this patient's diabetes?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "care_plan",
+    "expected_resource_types": [
+      "CarePlan"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "care plan|diabet"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "CPL-004",
+    "question": "What ongoing care plans does this patient have?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "care_plan",
+    "expected_resource_types": [
+      "CarePlan"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "care plan"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "PRV-001",
+    "question": "When did this patient last have a diabetic retinal eye examination?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "preventive",
+    "expected_resource_types": [
+      "Procedure"
+    ],
+    "expected_codes": [
+      {
+        "system": "SNOMED",
+        "code": "722161008",
+        "display": "Diabetic retinal eye exam"
+      }
+    ],
+    "expected_answer_contains": [
+      "eye|retinal",
+      "date"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "PRV-002",
+    "question": "What immunizations has this patient received, and on what dates?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "preventive",
+    "expected_resource_types": [
+      "Immunization"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "date"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "PRV-003",
+    "question": "What preventive screenings are documented for this patient?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "preventive",
+    "expected_resource_types": [
+      "Procedure"
+    ],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "listing of screenings"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "NEG-001",
+    "question": "What is this patient's most recent HbA1c result?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "negative",
+    "expected_resource_types": [],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "insufficient data"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "NEG-002",
+    "question": "What are this patient's spirometry or peak flow results?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "negative",
+    "expected_resource_types": [],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "insufficient data"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "NEG-003",
+    "question": "Has this patient ever been hospitalized or intubated for asthma?",
+    "patient_ref": "Patient/064e883f-d41c-5fa5-b6f6-664fdbfb9ca8",
+    "category": "negative",
+    "expected_resource_types": [],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "insufficient data|no record|not documented"
+    ],
+    "cohort": "pediatric_atopic"
+  },
+  {
+    "id": "NEG-004",
+    "question": "What insulin pump model is this patient using?",
+    "patient_ref": "Patient/e7b54eb8-5d9c-5d7a-0003-a39b8c7b3f81",
+    "category": "negative",
+    "expected_resource_types": [],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "insufficient data"
+    ],
+    "cohort": "diabetes"
+  },
+  {
+    "id": "NEG-005",
+    "question": "What continuous glucose monitor readings are recorded for this patient?",
+    "patient_ref": "Patient/7844e2b7-bbef-7ea5-5f60-2f0daf1cf775",
+    "category": "negative",
+    "expected_resource_types": [],
+    "expected_codes": [],
+    "expected_answer_contains": [
+      "insufficient data"
+    ],
+    "cohort": "diabetes"
+  }
 ]

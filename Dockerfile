@@ -22,6 +22,10 @@ RUN python -c "from sentence_transformers import SentenceTransformer; \
     SentenceTransformer('all-MiniLM-L6-v2')"
 COPY src ./src
 COPY db ./db
+# The evaluation harness runs inside the container: the host Python lacks
+# asyncpg and pgvector, so `docker compose exec app python -m eval.evaluate`
+# is the documented way to run it.
+COPY eval ./eval
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
