@@ -36,14 +36,20 @@ def _pool(request: Request):
     return pool or get_pool()
 
 
+def _strip_synthea_digits(name: str) -> str:
+    """Synthea suffixes every name part with digits ("Bob965"); drop them for display."""
+    return re.sub(r"(?<=[^\W\d_])\d+\b", "", name)
+
+
 def _patient_summary(row) -> PatientSummary:
     patient_id = row.get("patient_ref", row.get("id", ""))
     text = row.get("text_content", "") or ""
     name_match = re.search(r"Patient:\s*([^\.]+)", text)
     date_match = re.search(r"\b\d{4}-\d{2}-\d{2}\b", text)
+    raw_name = row.get("name") or (name_match.group(1).strip() if name_match else None)
     return PatientSummary(
         id=patient_id,
-        name=row.get("name") or (name_match.group(1).strip() if name_match else patient_id),
+        name=_strip_synthea_digits(raw_name) if raw_name else patient_id,
         birth_date=row.get("birth_date") or (date_match.group(0) if date_match else None),
     )
 
@@ -106,7 +112,10 @@ async def list_patients(request: Request) -> list[PatientSummary]:
             """,
             "Patient",
         )
-        return [_patient_summary(row) for row in rows]
+        # The display name is parsed from text_content, so the picker's
+        # alphabetical order cannot come from the SQL ORDER BY above.
+        summaries = [_patient_summary(row) for row in rows]
+        return sorted(summaries, key=lambda patient: patient.name.casefold())
     except Exception as exc:
         logger.exception("Patient listing failed: %s", exc)
         raise HTTPException(status_code=500, detail="Unable to list patients") from exc
